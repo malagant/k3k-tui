@@ -1,0 +1,27 @@
+apiVersion: k3k.io/v1beta1
+kind: Cluster
+metadata:
+  name: example-cluster
+  namespace: default
+spec:
+  mode: virtual
+  version: v1.31.3-k3s1
+  servers: 1
+  agents: 2
+  clusterCIDR: 10.52.0.0/16
+  serviceCIDR: 10.53.0.0/16
+  clusterDNS: 10.53.0.10
+  persistence:
+    type: dynamic
+    storageClassName: standard
+    storageRequestSize: 5G
+  nodeSelector:
+    kubernetes.io/os: linux
+  tlsSANs:
+    - example.local
+    - 192.168.1.100
+  serverArgs:
+    - --disable=traefik
+    - --disable=servicelb
+  agentArgs:
+    - --kubelet-arg=max-pods=50
