@@ -57,6 +57,7 @@ func (m Model) updateClusterList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "9":
 		if cluster := m.getCurrentCluster(); cluster != nil {
+			m.runningK9s = true
 			return m, launchK9s(cluster.Namespace)
 		}
 	case "n":

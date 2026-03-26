@@ -120,6 +120,7 @@ type Model struct {
 	
 	// State
 	loading      bool
+	runningK9s   bool
 	error        string
 	filter       string
 	namespace    string
@@ -267,8 +268,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateComponentSizes()
 
 	case tea.KeyMsg:
-		// ctrl+c ALWAYS quits, regardless of view or input focus
-		if msg.String() == "ctrl+c" {
+		// ctrl+c quits — but not while k9s is running (it needs ctrl+c itself)
+		if msg.String() == "ctrl+c" && !m.runningK9s {
 			return m, tea.Quit
 		}
 
@@ -386,6 +387,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tickMsg:
+		// Don't do anything while k9s is running
+		if m.runningK9s {
+			return m, nil
+		}
 		// Auto-refresh: only reload when on the list view and not loading
 		if m.state == ClusterListView && !m.loading {
 			return m, tea.Batch(m.loadClusters(), m.autoRefreshTick())
@@ -395,11 +400,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case k9sFinishedMsg:
 		m.loading = false
+		m.runningK9s = false
 		if msg.err != nil {
 			m.error = fmt.Sprintf("k9s: %v", msg.err)
 		}
-		// Refresh clusters after returning from k9s
-		cmds = append(cmds, m.loadClusters())
+		// Refresh clusters and restart auto-refresh after returning from k9s
+		cmds = append(cmds, m.loadClusters(), m.autoRefreshTick())
 
 	case errorMsg:
 		m.loading = false
