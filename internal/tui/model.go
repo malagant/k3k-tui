@@ -371,6 +371,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = KubeconfigView
 		}
 
+	case k9sExecMsg:
+		m.loading = false
+		return m, execK9s(msg.kubeconfigPath)
+
+	case k9sFinishedMsg:
+		m.loading = false
+		if msg.err != nil {
+			m.error = fmt.Sprintf("k9s: %v", msg.err)
+		}
+		// Refresh clusters after returning from k9s
+		cmds = append(cmds, m.loadClusters())
+
 	case errorMsg:
 		m.loading = false
 		m.error = msg.error
@@ -624,6 +636,7 @@ func (m Model) renderFooter() string {
 			keyStyle.Render("<e>") + actionStyle.Render("Edit"),
 			keyStyle.Render("<x>") + actionStyle.Render("Delete"),
 			keyStyle.Render("<k>") + actionStyle.Render("Kubeconfig"),
+			keyStyle.Render("<9>") + actionStyle.Render("k9s"),
 			keyStyle.Render("</>") + actionStyle.Render("Filter"),
 			keyStyle.Render("<?>") + actionStyle.Render("Help"),
 		}

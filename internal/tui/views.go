@@ -55,6 +55,11 @@ func (m Model) updateClusterList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.loading = true
 			return m, m.loadClusterDetail(cluster.Namespace, cluster.Name)
 		}
+	case "9":
+		if cluster := m.getCurrentCluster(); cluster != nil {
+			m.loading = true
+			return m, m.launchK9s(cluster.Namespace, cluster.Name)
+		}
 	case "n":
 		// TODO: Implement namespace selector
 		return m, nil
