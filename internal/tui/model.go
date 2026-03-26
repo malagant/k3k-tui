@@ -259,10 +259,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateComponentSizes()
 
 	case tea.KeyMsg:
+		// ctrl+c ALWAYS quits, regardless of view or input focus
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+
 		// Global commands (work in any view except when typing)
 		if !m.isInputFocused() {
 			switch msg.String() {
-			case "q", "ctrl+c":
+			case "q":
 				return m, tea.Quit
 			case ":":
 				return m.enterCommandMode(":")
