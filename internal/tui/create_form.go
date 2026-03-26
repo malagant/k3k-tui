@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/malagant/k3k-tui/internal/k8s"
+
 	"github.com/malagant/k3k-tui/internal/types"
 )
 
@@ -29,7 +29,7 @@ const (
 	StepConfirm
 )
 
-// CreateForm handles the cluster creation form
+// CreateForm handles the cluster creation form with k9s modal styling
 type CreateForm struct {
 	step         FormStep
 	inputs       []textinput.Model
@@ -49,7 +49,7 @@ type CreateForm struct {
 	modeToggle       bool // false = shared, true = virtual
 	persistenceToggle bool // false = dynamic, true = ephemeral
 	
-	// UI
+	// UI dimensions
 	width  int
 	height int
 }
@@ -64,15 +64,25 @@ func NewCreateForm() *CreateForm {
 		persistence:  "dynamic",
 		modeToggle:   false,
 		persistenceToggle: false,
+		width:        80,
+		height:       25,
 	}
 
 	f.initInputs()
 	return f
 }
 
-// initInputs initializes the text inputs
+// initInputs initializes the text inputs with k9s styling
 func (f *CreateForm) initInputs() {
 	inputs := make([]textinput.Model, 5)
+
+	inputStyle := lipgloss.NewStyle().
+		Foreground(colorHeaderText).
+		Background(colorBg)
+
+	focusedStyle := lipgloss.NewStyle().
+		Foreground(colorCommand).
+		Background(colorBg)
 
 	// Name input
 	inputs[0] = textinput.New()
@@ -80,18 +90,27 @@ func (f *CreateForm) initInputs() {
 	inputs[0].Focus()
 	inputs[0].CharLimit = 253
 	inputs[0].Width = 30
+	inputs[0].TextStyle = inputStyle
+	inputs[0].PlaceholderStyle = lipgloss.NewStyle().Foreground(colorHelp)
+	inputs[0].Cursor.Style = focusedStyle
 
 	// Namespace input
 	inputs[1] = textinput.New()
 	inputs[1].Placeholder = "Enter namespace"
 	inputs[1].CharLimit = 253
 	inputs[1].Width = 30
+	inputs[1].TextStyle = inputStyle
+	inputs[1].PlaceholderStyle = lipgloss.NewStyle().Foreground(colorHelp)
+	inputs[1].Cursor.Style = focusedStyle
 
 	// Version input
 	inputs[2] = textinput.New()
 	inputs[2].Placeholder = "e.g., v1.31.3-k3s1 (optional)"
 	inputs[2].CharLimit = 50
 	inputs[2].Width = 30
+	inputs[2].TextStyle = inputStyle
+	inputs[2].PlaceholderStyle = lipgloss.NewStyle().Foreground(colorHelp)
+	inputs[2].Cursor.Style = focusedStyle
 
 	// Servers input
 	inputs[3] = textinput.New()
@@ -99,6 +118,9 @@ func (f *CreateForm) initInputs() {
 	inputs[3].SetValue("1")
 	inputs[3].CharLimit = 3
 	inputs[3].Width = 10
+	inputs[3].TextStyle = inputStyle
+	inputs[3].PlaceholderStyle = lipgloss.NewStyle().Foreground(colorHelp)
+	inputs[3].Cursor.Style = focusedStyle
 
 	// Agents input
 	inputs[4] = textinput.New()
@@ -106,6 +128,9 @@ func (f *CreateForm) initInputs() {
 	inputs[4].SetValue("0")
 	inputs[4].CharLimit = 3
 	inputs[4].Width = 10
+	inputs[4].TextStyle = inputStyle
+	inputs[4].PlaceholderStyle = lipgloss.NewStyle().Foreground(colorHelp)
+	inputs[4].Cursor.Style = focusedStyle
 
 	f.inputs = inputs
 }
@@ -120,7 +145,7 @@ func (f *CreateForm) Update(msg tea.KeyMsg) {
 		f.inputs[1], _ = f.inputs[1].Update(msg)
 		f.namespace = f.inputs[1].Value()
 	case StepMode:
-		if msg.String() == "space" {
+		if msg.String() == " " || msg.String() == "space" {
 			f.modeToggle = !f.modeToggle
 			if f.modeToggle {
 				f.mode = "virtual"
@@ -142,7 +167,7 @@ func (f *CreateForm) Update(msg tea.KeyMsg) {
 			f.agents = int32(val)
 		}
 	case StepPersistence:
-		if msg.String() == "space" {
+		if msg.String() == " " || msg.String() == "space" {
 			f.persistenceToggle = !f.persistenceToggle
 			if f.persistenceToggle {
 				f.persistence = "ephemeral"
@@ -153,7 +178,7 @@ func (f *CreateForm) Update(msg tea.KeyMsg) {
 	case StepStorageClass:
 		// Only show this step if persistence is dynamic
 		if f.persistence == "dynamic" {
-			// Storage class input (reuse an input)
+			// Storage class input (reuse name input)
 			f.inputs[0].SetValue(f.storageClass)
 			f.inputs[0], _ = f.inputs[0].Update(msg)
 			f.storageClass = f.inputs[0].Value()
@@ -168,22 +193,27 @@ func (f *CreateForm) Next() {
 		if f.name != "" {
 			f.step = StepNamespace
 			f.inputs[1].Focus()
+			f.inputs[0].Blur()
 		}
 	case StepNamespace:
 		if f.namespace != "" {
 			f.step = StepMode
+			f.inputs[1].Blur()
 		}
 	case StepMode:
 		f.step = StepVersion
 		f.inputs[2].Focus()
 	case StepVersion:
 		f.step = StepServers
+		f.inputs[2].Blur()
 		f.inputs[3].Focus()
 	case StepServers:
 		f.step = StepAgents
+		f.inputs[3].Blur()
 		f.inputs[4].Focus()
 	case StepAgents:
 		f.step = StepPersistence
+		f.inputs[4].Blur()
 	case StepPersistence:
 		if f.persistence == "dynamic" {
 			f.step = StepStorageClass
@@ -195,6 +225,7 @@ func (f *CreateForm) Next() {
 		}
 	case StepStorageClass:
 		f.step = StepConfirm
+		f.inputs[0].Blur()
 	}
 }
 
@@ -203,23 +234,28 @@ func (f *CreateForm) Previous() {
 	switch f.step {
 	case StepNamespace:
 		f.step = StepName
+		f.inputs[1].Blur()
 		f.inputs[0].Focus()
 	case StepMode:
 		f.step = StepNamespace
 		f.inputs[1].Focus()
 	case StepVersion:
 		f.step = StepMode
+		f.inputs[2].Blur()
 	case StepServers:
 		f.step = StepVersion
+		f.inputs[3].Blur()
 		f.inputs[2].Focus()
 	case StepAgents:
 		f.step = StepServers
+		f.inputs[4].Blur()
 		f.inputs[3].Focus()
 	case StepPersistence:
 		f.step = StepAgents
 		f.inputs[4].Focus()
 	case StepStorageClass:
 		f.step = StepPersistence
+		f.inputs[0].Blur()
 	case StepConfirm:
 		if f.persistence == "dynamic" {
 			f.step = StepStorageClass
@@ -278,136 +314,190 @@ func (f *CreateForm) ToCluster() *types.Cluster {
 	return cluster
 }
 
-// View renders the form
+// View renders the form in k9s modal style
 func (f *CreateForm) View() string {
 	var content strings.Builder
 	
-	content.WriteString("Create New k3k Cluster\n")
-	content.WriteString(strings.Repeat("=", 30) + "\n\n")
+	// Title
+	titleStyle := lipgloss.NewStyle().
+		Foreground(colorYamlHeader).
+		Bold(true).
+		Align(lipgloss.Center).
+		Width(74)
+	
+	content.WriteString(titleStyle.Render("CREATE K3K CLUSTER") + "\n\n")
 
+	// Progress indicator as a bar
+	totalSteps := 8
+	if f.persistence == "dynamic" && f.step >= StepStorageClass {
+		totalSteps = 9
+	}
+	
+	currentStep := int(f.step) + 1
+	if f.step == StepStorageClass {
+		currentStep = 8
+	} else if f.step == StepConfirm && f.persistence == "dynamic" {
+		currentStep = 9
+	}
+	
+	progressBar := f.renderProgressBar(currentStep, totalSteps)
+	content.WriteString(progressBar + "\n\n")
+
+	// Step content
 	switch f.step {
 	case StepName:
-		content.WriteString("Step 1/8: Cluster Name\n\n")
-		content.WriteString("Enter a name for your cluster:\n")
+		content.WriteString(f.renderStepTitle("Cluster Name"))
+		content.WriteString("Enter a unique name for your cluster:\n\n")
 		content.WriteString(f.inputs[0].View() + "\n")
 		
 	case StepNamespace:
-		content.WriteString("Step 2/8: Namespace\n\n")
-		content.WriteString("Enter the namespace where the cluster will be created:\n")
+		content.WriteString(f.renderStepTitle("Namespace"))
+		content.WriteString("Enter the namespace where the cluster will be created:\n\n")
 		content.WriteString(f.inputs[1].View() + "\n")
 		
 	case StepMode:
-		content.WriteString("Step 3/8: Cluster Mode\n\n")
+		content.WriteString(f.renderStepTitle("Cluster Mode"))
 		content.WriteString("Select cluster mode (use space to toggle):\n\n")
 		
-		sharedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		virtualStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		sharedIcon := "○"
+		virtualIcon := "○"
 		
 		if !f.modeToggle {
-			sharedStyle = sharedStyle.Foreground(lipgloss.Color("34")).Bold(true)
+			sharedIcon = "●"
 		} else {
-			virtualStyle = virtualStyle.Foreground(lipgloss.Color("34")).Bold(true)
+			virtualIcon = "●"
 		}
 		
-		content.WriteString(fmt.Sprintf("[ ] %s\n", sharedStyle.Render("shared - Lightweight, shared control plane")))
-		content.WriteString(fmt.Sprintf("[ ] %s\n", virtualStyle.Render("virtual - Full isolated virtual cluster")))
+		sharedStyle := lipgloss.NewStyle().Foreground(colorModeShared)
+		virtualStyle := lipgloss.NewStyle().Foreground(colorModeVirtual)
 		
-		if !f.modeToggle {
-			content.WriteString("\n[x] shared")
-		} else {
-			content.WriteString("\n[x] virtual")
-		}
+		content.WriteString(fmt.Sprintf("%s %s shared - Lightweight, shared control plane\n", 
+			sharedIcon, sharedStyle.Render("shared")))
+		content.WriteString(fmt.Sprintf("%s %s virtual - Full isolated virtual cluster\n", 
+			virtualIcon, virtualStyle.Render("virtual")))
 		
 	case StepVersion:
-		content.WriteString("Step 4/8: K3s Version\n\n")
-		content.WriteString("Enter K3s version (leave empty for default):\n")
+		content.WriteString(f.renderStepTitle("K3s Version"))
+		content.WriteString("Enter K3s version (leave empty for default):\n\n")
 		content.WriteString(f.inputs[2].View() + "\n")
 		
 	case StepServers:
-		content.WriteString("Step 5/8: Server Nodes\n\n")
-		content.WriteString("Number of server nodes (minimum 1):\n")
+		content.WriteString(f.renderStepTitle("Server Nodes"))
+		content.WriteString("Number of server nodes (minimum 1):\n\n")
 		content.WriteString(f.inputs[3].View() + "\n")
 		
 	case StepAgents:
-		content.WriteString("Step 6/8: Agent Nodes\n\n")
+		content.WriteString(f.renderStepTitle("Agent Nodes"))
 		if f.mode == "shared" {
-			content.WriteString("Agent nodes (ignored in shared mode, will be set to 0):\n")
+			content.WriteString("Agent nodes (ignored in shared mode, will be set to 0):\n\n")
 		} else {
-			content.WriteString("Number of agent nodes (minimum 0):\n")
+			content.WriteString("Number of agent nodes (minimum 0):\n\n")
 		}
 		content.WriteString(f.inputs[4].View() + "\n")
 		
 	case StepPersistence:
-		totalSteps := "7/8"
-		if f.persistence == "dynamic" {
-			totalSteps = "7/9"
-		}
-		content.WriteString(fmt.Sprintf("Step %s: Persistence Type\n\n", totalSteps))
+		content.WriteString(f.renderStepTitle("Persistence Type"))
 		content.WriteString("Select persistence type (use space to toggle):\n\n")
 		
-		dynamicStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-		ephemeralStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		dynamicIcon := "○"
+		ephemeralIcon := "○"
 		
 		if !f.persistenceToggle {
-			dynamicStyle = dynamicStyle.Foreground(lipgloss.Color("34")).Bold(true)
+			dynamicIcon = "●"
 		} else {
-			ephemeralStyle = ephemeralStyle.Foreground(lipgloss.Color("34")).Bold(true)
+			ephemeralIcon = "●"
 		}
 		
-		content.WriteString(fmt.Sprintf("[ ] %s\n", dynamicStyle.Render("dynamic - Persistent storage")))
-		content.WriteString(fmt.Sprintf("[ ] %s\n", ephemeralStyle.Render("ephemeral - No persistent storage")))
-		
-		if !f.persistenceToggle {
-			content.WriteString("\n[x] dynamic")
-		} else {
-			content.WriteString("\n[x] ephemeral")
-		}
+		content.WriteString(fmt.Sprintf("%s %s dynamic - Persistent storage\n", 
+			dynamicIcon, lipgloss.NewStyle().Foreground(colorRunning).Render("dynamic")))
+		content.WriteString(fmt.Sprintf("%s %s ephemeral - No persistent storage\n", 
+			ephemeralIcon, lipgloss.NewStyle().Foreground(colorPending).Render("ephemeral")))
 		
 	case StepStorageClass:
-		content.WriteString("Step 8/9: Storage Class\n\n")
-		content.WriteString("Storage class name (leave empty for default):\n")
+		content.WriteString(f.renderStepTitle("Storage Class"))
+		content.WriteString("Storage class name (leave empty for default):\n\n")
 		content.WriteString(f.inputs[0].View() + "\n")
 		
 	case StepConfirm:
-		totalSteps := "8/8"
-		if f.persistence == "dynamic" {
-			totalSteps = "9/9"
-		}
-		content.WriteString(fmt.Sprintf("Step %s: Confirm\n\n", totalSteps))
+		content.WriteString(f.renderStepTitle("Confirm Configuration"))
 		content.WriteString("Review your cluster configuration:\n\n")
 		
-		content.WriteString(fmt.Sprintf("Name: %s\n", f.name))
-		content.WriteString(fmt.Sprintf("Namespace: %s\n", f.namespace))
-		content.WriteString(fmt.Sprintf("Mode: %s\n", f.mode))
+		// Configuration summary with styling
+		keyStyle := lipgloss.NewStyle().Foreground(colorYamlKey).Bold(true)
+		valueStyle := lipgloss.NewStyle().Foreground(colorHeaderText)
+		
+		content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Name:"), valueStyle.Render(f.name)))
+		content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Namespace:"), valueStyle.Render(f.namespace)))
+		
+		modeColor := colorModeShared
+		if f.mode == "virtual" {
+			modeColor = colorModeVirtual
+		}
+		content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Mode:"), 
+			lipgloss.NewStyle().Foreground(modeColor).Render(f.mode)))
+		
 		if f.version != "" {
-			content.WriteString(fmt.Sprintf("Version: %s\n", f.version))
+			content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Version:"), valueStyle.Render(f.version)))
 		}
-		content.WriteString(fmt.Sprintf("Servers: %d\n", f.servers))
+		content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Servers:"), valueStyle.Render(fmt.Sprintf("%d", f.servers))))
+		
 		if f.mode != "shared" {
-			content.WriteString(fmt.Sprintf("Agents: %d\n", f.agents))
+			content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Agents:"), valueStyle.Render(fmt.Sprintf("%d", f.agents))))
 		}
-		content.WriteString(fmt.Sprintf("Persistence: %s\n", f.persistence))
+		
+		persistenceColor := colorRunning
+		if f.persistence == "ephemeral" {
+			persistenceColor = colorPending
+		}
+		content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Persistence:"), 
+			lipgloss.NewStyle().Foreground(persistenceColor).Render(f.persistence)))
+		
 		if f.persistence == "dynamic" && f.storageClass != "" {
-			content.WriteString(fmt.Sprintf("Storage Class: %s\n", f.storageClass))
+			content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Storage Class:"), valueStyle.Render(f.storageClass)))
 		}
 		
-		content.WriteString("\nPress Enter to create the cluster, or Esc to cancel.\n")
-		
-		// Show YAML preview
-		cluster := f.ToCluster()
-		yaml, err := k8s.ClusterToYAML(cluster)
-		if err == nil {
-			content.WriteString("\nYAML Preview:\n")
-			content.WriteString("-------------\n")
-			content.WriteString(yaml)
-		}
+		content.WriteString("\n" + lipgloss.NewStyle().Foreground(colorCommand).Render("Press Enter to create the cluster") + "\n")
 	}
+	
+	// Instructions
+	content.WriteString("\n")
+	instrStyle := lipgloss.NewStyle().Foreground(colorHelp)
+	content.WriteString(instrStyle.Render("Tab: Next • Shift+Tab: Previous • Enter: Continue • Esc: Cancel"))
 
-	style := lipgloss.NewStyle().
+	// Modal style with rounded border like k9s
+	modalStyle := lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62")).
-		Padding(1, 2).
-		Width(80)
+		BorderForeground(colorTableHeader).
+		Background(colorBg).
+		Padding(2, 3).
+		Width(80).
+		Height(25).
+		Align(lipgloss.Left, lipgloss.Top)
 
-	return style.Render(content.String())
+	return modalStyle.Render(content.String())
+}
+
+// renderStepTitle renders a step title with k9s styling
+func (f *CreateForm) renderStepTitle(title string) string {
+	style := lipgloss.NewStyle().
+		Foreground(colorTableHeader).
+		Bold(true).
+		Margin(0, 0, 1, 0)
+	return style.Render(title) + "\n"
+}
+
+// renderProgressBar renders a k9s-style progress bar
+func (f *CreateForm) renderProgressBar(current, total int) string {
+	barWidth := 60
+	filled := int(float64(current) / float64(total) * float64(barWidth))
+	
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
+	
+	progressStyle := lipgloss.NewStyle().
+		Foreground(colorTableHeader)
+	
+	labelStyle := lipgloss.NewStyle().
+		Foreground(colorHelp)
+	
+	return progressStyle.Render(bar) + " " + labelStyle.Render(fmt.Sprintf("%d/%d", current, total))
 }
