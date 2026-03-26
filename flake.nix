@@ -50,14 +50,38 @@
             delve         # debugger
             kubectl
             k9s
+            starship
           ];
 
           shellHook = ''
+            # Merge k3k-tui starship config with user's existing config
+            _user_config="''${STARSHIP_CONFIG:-$HOME/.config/starship.toml}"
+            _merged="/tmp/k3k-tui-starship-$$.toml"
+
+            {
+              [ -f "$_user_config" ] && cat "$_user_config"
+              echo ""
+              cat "$PWD/.config/starship.toml"
+            } > "$_merged"
+
+            export STARSHIP_CONFIG="$_merged"
+            trap "rm -f '$_merged'" EXIT
+
+            # Init starship for current shell
+            if [ -n "$ZSH_VERSION" ]; then
+              eval "$(starship init zsh)"
+            elif [ -n "$BASH_VERSION" ]; then
+              eval "$(starship init bash)"
+            elif [ -n "$FISH_VERSION" ]; then
+              starship init fish | source
+            fi
+
             echo "🚀 k3k-tui dev shell"
-            echo "   go version: $(go version | awk '{print $3}')"
-            echo "   build:      go build -o k3k-tui ."
-            echo "   run:        go run ."
-            echo "   test:       go test ./..."
+            echo "   go:       $(go version | awk '{print $3}')"
+            echo "   starship: $(starship --version | head -1)"
+            echo "   build:    go build -o k3k-tui ."
+            echo "   run:      go run ."
+            echo "   test:     go test ./..."
           '';
         };
       }
