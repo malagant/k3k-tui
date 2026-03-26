@@ -117,9 +117,9 @@ func (m Model) loadKubeconfig(namespace, name string) tea.Cmd {
 	})
 }
 
-// launchK9s generates a kubeconfig for the virtual cluster via k3kcli,
-// then launches k9s with it. Falls back to host namespace if k3kcli is unavailable.
-func launchK9s(namespace, clusterName string) tea.Cmd {
+// launchK9s fetches the virtual cluster kubeconfig from the server pod
+// and launches k9s with it. Falls back to host namespace view.
+func (m Model) launchK9s(namespace, clusterName string) tea.Cmd {
 	k9sPath, err := exec.LookPath("k9s")
 	if err != nil {
 		return func() tea.Msg {
@@ -127,33 +127,23 @@ func launchK9s(namespace, clusterName string) tea.Cmd {
 		}
 	}
 
-	// Try to generate kubeconfig via k3kcli
-	k3kcliPath, err := exec.LookPath("k3kcli")
-	if err == nil {
-		// Generate kubeconfig to temp file
-		tmpFile, err := os.CreateTemp("", fmt.Sprintf("k3k-tui-%s-%s-*.yaml", namespace, clusterName))
-		if err == nil {
+	// Fetch kubeconfig from virtual cluster server pod
+	ctx := context.Background()
+	kubeconfigData, err := m.client.GetKubeconfig(ctx, namespace, clusterName)
+	if err == nil && len(kubeconfigData) > 50 {
+		tmpFile, tmpErr := os.CreateTemp("", fmt.Sprintf("k3k-tui-%s-%s-*.yaml", namespace, clusterName))
+		if tmpErr == nil {
+			tmpFile.Write(kubeconfigData)
 			tmpFile.Close()
-			genCmd := exec.Command(k3kcliPath, "kubeconfig", "generate",
-				"--name", clusterName,
-				"--namespace", namespace,
-				"--config-name", tmpFile.Name(),
-			)
-			if err := genCmd.Run(); err == nil {
-				// Check that the file has content
-				if info, err := os.Stat(tmpFile.Name()); err == nil && info.Size() > 50 {
-					c := exec.Command(k9sPath, "--kubeconfig", tmpFile.Name())
-					return tea.ExecProcess(c, func(err error) tea.Msg {
-						os.Remove(tmpFile.Name())
-						return k9sFinishedMsg{err: err}
-					})
-				}
-			}
-			os.Remove(tmpFile.Name())
+			c := exec.Command(k9sPath, "--kubeconfig", tmpFile.Name())
+			return tea.ExecProcess(c, func(err error) tea.Msg {
+				os.Remove(tmpFile.Name())
+				return k9sFinishedMsg{err: err}
+			})
 		}
 	}
 
-	// Fallback: use host kubeconfig scoped to cluster namespace
+	// Fallback: host kubeconfig scoped to namespace
 	c := exec.Command(k9sPath, "-n", namespace)
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return k9sFinishedMsg{err: err}

@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/malagant/k3k-tui/internal/types"
 )
@@ -229,89 +231,120 @@ func (c *Client) GetClusterPods(ctx context.Context, namespace, clusterName stri
 	return pods, nil
 }
 
-// GetKubeconfig retrieves the kubeconfig for a k3k cluster.
-// k3k stores the server CA in a secret named "<cluster>-server-ca" and the
-// API server is exposed via a service. We look for common secret patterns
-// and build connection info from available data.
+// GetKubeconfig retrieves the kubeconfig for a k3k virtual cluster.
+// It reads the kubeconfig from the k3s server pod and rewrites the server
+// endpoint to point to the cluster's Service (accessible from the host).
 func (c *Client) GetKubeconfig(ctx context.Context, namespace, clusterName string) ([]byte, error) {
-	// Try common kubeconfig secret name patterns used by k3k
-	secretPatterns := []struct {
-		name string
-		keys []string
-	}{
-		{clusterName + "-kubeconfig", []string{"config", "kubeconfig", "value"}},
-		{clusterName + "-kubeconfig", []string{"kubeconfig.yaml"}},
-		{"k3k-" + clusterName + "-kubeconfig", []string{"config", "kubeconfig", "value"}},
-	}
-
-	for _, p := range secretPatterns {
-		secret, err := c.clientset.CoreV1().Secrets(namespace).Get(ctx, p.name, metav1.GetOptions{})
-		if err != nil {
-			continue
-		}
-		for _, key := range p.keys {
-			if data, ok := secret.Data[key]; ok && len(data) > 0 {
-				return data, nil
-			}
-		}
-	}
-
-	// Fallback: list all secrets in namespace and look for kubeconfig-related data
-	secrets, err := c.clientset.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
+	// 1. Find the server pod for this cluster
+	pods, err := c.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("cluster=%s,role=server", clusterName),
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list secrets in %s: %w", namespace, err)
+		return nil, fmt.Errorf("failed to list server pods: %w", err)
 	}
 
-	for _, secret := range secrets.Items {
-		for key, data := range secret.Data {
-			if (key == "config" || key == "kubeconfig" || key == "kubeconfig.yaml" || key == "value") &&
-				len(data) > 100 && containsKubeconfigMarker(data) {
-				return data, nil
+	// Try alternative label selectors if first one didn't work
+	if len(pods.Items) == 0 {
+		pods, err = c.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("k3k.io/cluster=%s", clusterName),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list server pods: %w", err)
+		}
+	}
+
+	// Last resort: find pods matching the cluster name pattern
+	if len(pods.Items) == 0 {
+		allPods, err := c.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list pods: %w", err)
+		}
+		for _, pod := range allPods.Items {
+			if strings.Contains(pod.Name, clusterName) && strings.Contains(pod.Name, "server") {
+				pods.Items = append(pods.Items, pod)
 			}
 		}
 	}
 
-	// Build info from available k3k secrets (server-ca, service)
-	var info strings.Builder
-	info.WriteString(fmt.Sprintf("# Kubeconfig for k3k cluster %s/%s\n", namespace, clusterName))
-	info.WriteString("# No pre-generated kubeconfig secret found.\n")
-	info.WriteString("# Use k3kcli to generate one:\n")
-	info.WriteString(fmt.Sprintf("#   k3kcli kubeconfig generate --name %s --namespace %s\n\n", clusterName, namespace))
-
-	// Show available secrets for debugging
-	info.WriteString("# Available secrets in namespace:\n")
-	for _, secret := range secrets.Items {
-		info.WriteString(fmt.Sprintf("#   %s (type: %s, keys: %s)\n", secret.Name, secret.Type, secretKeys(&secret)))
+	if len(pods.Items) == 0 {
+		return nil, fmt.Errorf("no server pods found for cluster %s/%s", namespace, clusterName)
 	}
 
-	// Show service endpoint if available
-	svcName := clusterName + "-server"
-	svc, err := c.clientset.CoreV1().Services(namespace).Get(ctx, svcName, metav1.GetOptions{})
-	if err == nil {
-		for _, port := range svc.Spec.Ports {
-			if port.Name == "https" || port.Port == 6443 {
-				info.WriteString(fmt.Sprintf("\n# API Server: %s.%s.svc:%d\n", svc.Name, namespace, port.Port))
+	// Find a running server pod
+	var serverPod *corev1.Pod
+	for i := range pods.Items {
+		if pods.Items[i].Status.Phase == corev1.PodRunning {
+			serverPod = &pods.Items[i]
+			break
+		}
+	}
+	if serverPod == nil {
+		serverPod = &pods.Items[0] // try first pod even if not running
+	}
+
+	// 2. Exec into the pod to read the kubeconfig
+	kubeconfigData, err := c.execInPod(ctx, namespace, serverPod.Name, "cat /etc/rancher/k3s/k3s.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read kubeconfig from pod %s: %w", serverPod.Name, err)
+	}
+
+	// 3. Find the service endpoint for this cluster
+	serverEndpoint := fmt.Sprintf("https://%s-server.%s.svc:6443", clusterName, namespace)
+
+	// Try to find the actual service
+	svcNames := []string{
+		clusterName + "-server",
+		clusterName + "-k3k-server",
+		"k3k-" + clusterName + "-server",
+	}
+	for _, svcName := range svcNames {
+		svc, err := c.clientset.CoreV1().Services(namespace).Get(ctx, svcName, metav1.GetOptions{})
+		if err == nil {
+			for _, port := range svc.Spec.Ports {
+				if port.Port == 6443 || port.Name == "https" || port.Name == "api" {
+					serverEndpoint = fmt.Sprintf("https://%s.%s.svc:%d", svc.Name, namespace, port.Port)
+					break
+				}
 			}
+			break
 		}
 	}
 
-	return []byte(info.String()), nil
+	// 4. Rewrite the server URL in the kubeconfig
+	kubeconfig := strings.ReplaceAll(string(kubeconfigData), "https://127.0.0.1:6443", serverEndpoint)
+	kubeconfig = strings.ReplaceAll(kubeconfig, "https://localhost:6443", serverEndpoint)
+
+	return []byte(kubeconfig), nil
 }
 
-// containsKubeconfigMarker checks if data looks like a kubeconfig
-func containsKubeconfigMarker(data []byte) bool {
-	s := string(data)
-	return strings.Contains(s, "apiVersion") &&
-		(strings.Contains(s, "clusters:") || strings.Contains(s, "kind: Config"))
-}
+// execInPod executes a command in a pod and returns stdout
+func (c *Client) execInPod(ctx context.Context, namespace, podName, command string) ([]byte, error) {
+	req := c.clientset.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).
+		SubResource("exec").
+		Param("container", "").
+		Param("command", "/bin/sh").
+		Param("command", "-c").
+		Param("command", command).
+		Param("stdout", "true").
+		Param("stderr", "false")
 
-// secretKeys returns a comma-separated list of keys in a secret
-func secretKeys(secret *corev1.Secret) string {
-	keys := make([]string, 0, len(secret.Data))
-	for k := range secret.Data {
-		keys = append(keys, k)
+	exec, err := remotecommand.NewSPDYExecutor(c.restConfig, "POST", req.URL())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create executor: %w", err)
 	}
-	return strings.Join(keys, ", ")
+
+	var stdout bytes.Buffer
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdout: &stdout,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("exec failed: %w", err)
+	}
+
+	return stdout.Bytes(), nil
 }
 
 // ListNamespaces retrieves all namespaces
