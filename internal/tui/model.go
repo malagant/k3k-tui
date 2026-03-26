@@ -31,32 +31,72 @@ const (
 	HelpView
 )
 
-// k9s-like color scheme
+// Catppuccin Mocha color palette
+// https://github.com/catppuccin/catppuccin
 var (
-	// Background colors
-	colorBg          = lipgloss.Color("#000000")        // Terminal default
-	colorBreadcrumbBg = lipgloss.Color("#008B8B")      // Dark cyan for breadcrumb
+	// Base colors
+	catBase      = lipgloss.Color("#1e1e2e") // Base background
+	catMantle    = lipgloss.Color("#181825") // Darker background
+	catCrust     = lipgloss.Color("#11111b") // Darkest background
+	catSurface0  = lipgloss.Color("#313244") // Surface
+	catSurface1  = lipgloss.Color("#45475a") // Surface highlight
+	catSurface2  = lipgloss.Color("#585b70") // Surface brighter
+	catOverlay0  = lipgloss.Color("#6c7086") // Overlay muted
+	catOverlay1  = lipgloss.Color("#7f849c") // Overlay
+	catOverlay2  = lipgloss.Color("#9399b2") // Overlay bright
+	catSubtext0  = lipgloss.Color("#a6adc8") // Subtext
+	catSubtext1  = lipgloss.Color("#bac2de") // Subtext bright
+	catText      = lipgloss.Color("#cdd6f4") // Main text
 	
-	// Text colors
-	colorHeaderText   = lipgloss.Color("#FFFFFF")       // Bold white for headers
-	colorTableHeader  = lipgloss.Color("#00FFFF")       // Bright cyan/teal for table headers
-	colorSelectedBg   = lipgloss.Color("#008080")       // Teal background for selected row
-	colorSelectedText = lipgloss.Color("#FFFFFF")       // White text on selected row
-	colorRunning      = lipgloss.Color("#00FF00")       // Green for running/ready
-	colorPending      = lipgloss.Color("#FFA500")       // Orange for pending
-	colorFailed       = lipgloss.Color("#FF0000")       // Red for failed/error
-	colorAge          = lipgloss.Color("#808080")       // Gray for age
-	colorNamespace    = lipgloss.Color("#87CEEB")       // Light blue for namespace
-	colorModeShared   = lipgloss.Color("#00FFFF")       // Cyan for shared mode
-	colorModeVirtual  = lipgloss.Color("#FF00FF")       // Magenta for virtual mode
-	colorHelp         = lipgloss.Color("#696969")       // Dark gray for help
-	colorCommand      = lipgloss.Color("#FFFF00")       // Yellow for command bar
-	
-	// YAML colors
-	colorYamlKey      = lipgloss.Color("#00FFFF")       // Cyan for YAML keys
-	colorYamlValue    = lipgloss.Color("#FFFFFF")       // White for YAML values
-	colorYamlStatus   = lipgloss.Color("#00FF00")       // Green for status fields
-	colorYamlHeader   = lipgloss.Color("#FFFF00")       // Bold yellow for section headers
+	// Accent colors
+	catRosewater = lipgloss.Color("#f5e0dc")
+	catFlamingo  = lipgloss.Color("#f2cdcd")
+	catPink      = lipgloss.Color("#f5c2e7")
+	catMauve     = lipgloss.Color("#cba6f7")
+	catRed       = lipgloss.Color("#f38ba8")
+	catMaroon    = lipgloss.Color("#eba0ac")
+	catPeach     = lipgloss.Color("#fab387")
+	catYellow    = lipgloss.Color("#f9e2af")
+	catGreen     = lipgloss.Color("#a6e3a1")
+	catTeal      = lipgloss.Color("#94e2d5")
+	catSky       = lipgloss.Color("#89dceb")
+	catSapphire  = lipgloss.Color("#74c7ec")
+	catBlue      = lipgloss.Color("#89b4fa")
+	catLavender  = lipgloss.Color("#b4befe")
+
+	// Semantic aliases (k9s-style mapping onto Catppuccin)
+	colorBg           = catBase
+	colorBreadcrumbBg = catSurface0
+	colorHeaderText   = catText
+	colorTableHeader  = catBlue
+	colorSelectedBg   = catSurface1
+	colorSelectedText = catText
+	colorRunning      = catGreen
+	colorPending      = catYellow
+	colorFailed       = catRed
+	colorAge          = catOverlay1
+	colorNamespace    = catSapphire
+	colorModeShared   = catTeal
+	colorModeVirtual  = catMauve
+	colorHelp         = catOverlay0
+	colorCommand      = catYellow
+	colorYamlKey      = catBlue
+	colorYamlValue    = catText
+	colorYamlStatus   = catGreen
+	colorYamlHeader   = catPeach
+
+	// Modal colors
+	colorModalBorder    = catLavender
+	colorModalBg        = catMantle
+	colorModalTitle     = catPeach
+	colorDeleteBorder   = catRed
+	colorCreateBorder   = catGreen
+	colorEditBorder     = catYellow
+	colorFormLabel      = catSubtext1
+	colorFormActive     = catBlue
+	colorFormInactive   = catOverlay0
+	colorProgressDone   = catGreen
+	colorProgressTodo   = catSurface1
 )
 
 // Model represents the main TUI model
@@ -135,24 +175,26 @@ func NewModel(client *k8s.Client, version string) Model {
 		table.WithHeight(20),
 	)
 
-	// k9s-style table (borderless)
+	// Catppuccin Mocha styled table (borderless, k9s-like)
 	s := table.DefaultStyles()
 	s.Header = s.Header.
 		Bold(true).
-		Foreground(colorTableHeader).
+		Foreground(catBlue).
 		BorderStyle(lipgloss.NormalBorder()).
-		BorderBottom(false).
+		BorderBottom(true).
 		BorderTop(false).
 		BorderLeft(false).
 		BorderRight(false).
+		BorderForeground(catSurface2).
 		Align(lipgloss.Left)
 	
 	s.Selected = s.Selected.
-		Foreground(colorSelectedText).
-		Background(colorSelectedBg).
+		Foreground(catText).
+		Background(catSurface1).
 		Bold(false)
 	
 	s.Cell = s.Cell.
+		Foreground(catSubtext1).
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderBottom(false).
 		BorderTop(false).
@@ -164,7 +206,7 @@ func NewModel(client *k8s.Client, version string) Model {
 	// Initialize spinner for loading states
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = lipgloss.NewStyle().Foreground(colorCommand)
+	sp.Style = lipgloss.NewStyle().Foreground(catMauve)
 
 	// Initialize viewport for detail views
 	vp := viewport.New(0, 0)
@@ -468,28 +510,33 @@ func (m Model) renderCommandBar() string {
 	input := m.commandInput.View()
 	
 	commandStyle := lipgloss.NewStyle().
-		Foreground(colorCommand).
-		Background(colorBg)
+		Foreground(catYellow).
+		Background(catCrust)
 	
 	return commandStyle.Render(prompt + input)
 }
 
-// renderHeader renders the k9s-style header with logo
+// renderHeader renders the k9s-style header with logo (Catppuccin Mocha)
 func (m Model) renderHeader() string {
-	leftInfo := fmt.Sprintf("Context: %s\nCluster: %s\nK8s: %s\nk3k-tui: %s", 
-		m.contextName, 
-		m.clusterName, 
-		m.k8sVersion, 
-		m.version)
+	keyStyle := lipgloss.NewStyle().Foreground(catOverlay1)
+	valStyle := lipgloss.NewStyle().Foreground(catText).Bold(true)
+
+	leftInfo := fmt.Sprintf("%s %s\n%s %s\n%s %s\n%s %s",
+		keyStyle.Render("Context:"), valStyle.Render(m.contextName),
+		keyStyle.Render("Cluster:"), valStyle.Render(m.clusterName),
+		keyStyle.Render("K8s:"), valStyle.Render(m.k8sVersion),
+		keyStyle.Render("k3k-tui:"), valStyle.Foreground(catMauve).Render(m.version))
 
 	leftStyle := lipgloss.NewStyle().
-		Foreground(colorHeaderText).
-		Width(30).
+		Width(35).
 		Height(4).
 		Align(lipgloss.Left, lipgloss.Top)
 
+	logoStyle := lipgloss.NewStyle().
+		Foreground(catMauve).
+		Bold(true)
+
 	rightStyle := lipgloss.NewStyle().
-		Foreground(colorHeaderText).
 		Width(20).
 		Height(4).
 		Align(lipgloss.Right, lipgloss.Top)
@@ -499,102 +546,134 @@ func (m Model) renderHeader() string {
 		Height(4)
 
 	left := leftStyle.Render(leftInfo)
-	right := rightStyle.Render(k3kLogo)
-	
+	right := rightStyle.Render(logoStyle.Render(k3kLogo))
+
 	return headerStyle.Render(
 		lipgloss.JoinHorizontal(
 			lipgloss.Top,
 			left,
-			lipgloss.NewStyle().Width(m.width-50).Render(""),
+			lipgloss.NewStyle().Width(m.width-55).Render(""),
 			right,
 		),
 	)
 }
 
-// renderBreadcrumb renders the k9s-style breadcrumb bar
+// renderBreadcrumb renders the k9s-style breadcrumb bar (Catppuccin Mocha)
 func (m Model) renderBreadcrumb() string {
-	var text string
-	count := len(m.filteredClusters)
-	
 	namespaceText := "all"
 	if m.namespace != "" {
 		namespaceText = m.namespace
 	}
-	
-	text = fmt.Sprintf("Clusters(%s) [%d]", namespaceText, count)
-	
-	// Add filter indicator
+
+	count := len(m.filteredClusters)
+
+	labelStyle := lipgloss.NewStyle().
+		Foreground(catCrust).
+		Background(catBlue).
+		Bold(true).
+		Padding(0, 1)
+
+	countStyle := lipgloss.NewStyle().
+		Foreground(catText).
+		Background(catSurface0).
+		Padding(0, 1)
+
+	text := labelStyle.Render(fmt.Sprintf(" Clusters(%s) ", namespaceText))
+	text += countStyle.Render(fmt.Sprintf(" %d ", count))
+
+	// Filter indicator
 	if m.filter != "" {
-		text += fmt.Sprintf(" /%s", m.filter)
+		filterStyle := lipgloss.NewStyle().
+			Foreground(catYellow).
+			Background(catSurface0).
+			Padding(0, 1)
+		text += filterStyle.Render(fmt.Sprintf("/%s", m.filter))
 	}
-	
-	// Add loading indicator
+
+	// Loading indicator
 	if m.loading {
 		text += " " + m.spinner.View()
 	}
-	
-	style := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#000000")).
-		Background(colorBreadcrumbBg).
-		Bold(false).
+
+	barStyle := lipgloss.NewStyle().
+		Background(catSurface0).
 		Width(m.width).
-		Padding(0, 1).
-		Align(lipgloss.Left)
-	
-	return style.Render(text)
+		Padding(0, 0)
+
+	return barStyle.Render(text)
 }
 
-// renderFooter renders the k9s-style footer with keybindings and status  
+// renderFooter renders the k9s-style footer with keybindings and status (Catppuccin Mocha)
 func (m Model) renderFooter() string {
-	// Key bindings (left side)
-	var help string
-	
+	keyStyle := lipgloss.NewStyle().Foreground(catMauve).Bold(true)
+	actionStyle := lipgloss.NewStyle().Foreground(catSubtext0)
+
+	// Build keybinding help with colored keys
+	var helpParts []string
+
 	switch m.state {
 	case ClusterListView:
-		help = "<c>Create <d>Describe <e>Edit <x>Delete <k>Kubeconfig </>Filter <?> Help"
+		helpParts = []string{
+			keyStyle.Render("<c>") + actionStyle.Render("Create"),
+			keyStyle.Render("<d>") + actionStyle.Render("Describe"),
+			keyStyle.Render("<e>") + actionStyle.Render("Edit"),
+			keyStyle.Render("<x>") + actionStyle.Render("Delete"),
+			keyStyle.Render("<k>") + actionStyle.Render("Kubeconfig"),
+			keyStyle.Render("</>") + actionStyle.Render("Filter"),
+			keyStyle.Render("<?>") + actionStyle.Render("Help"),
+		}
 	case ClusterDetailView, KubeconfigView:
-		help = "<esc>Back <?> Help"
+		helpParts = []string{
+			keyStyle.Render("<esc>") + actionStyle.Render("Back"),
+			keyStyle.Render("<?>") + actionStyle.Render("Help"),
+		}
 	case CreateClusterView, EditClusterView:
-		help = "<tab>Next <shift+tab>Previous <enter>Submit <esc>Cancel"
+		helpParts = []string{
+			keyStyle.Render("<tab>") + actionStyle.Render("Next"),
+			keyStyle.Render("<S-tab>") + actionStyle.Render("Prev"),
+			keyStyle.Render("<enter>") + actionStyle.Render("Submit"),
+			keyStyle.Render("<esc>") + actionStyle.Render("Cancel"),
+		}
 	case DeleteConfirmView:
-		help = "<enter>Delete <esc>Cancel"
+		helpParts = []string{
+			keyStyle.Render("<enter>") + actionStyle.Render("Confirm"),
+			keyStyle.Render("<esc>") + actionStyle.Render("Cancel"),
+		}
 	case HelpView:
-		help = "<esc>Back"
+		helpParts = []string{
+			keyStyle.Render("<esc>") + actionStyle.Render("Back"),
+		}
 	}
+
+	help := strings.Join(helpParts, "  ")
 
 	// Status info (right side)
-	refreshStatus := ""
+	statusParts := []string{m.contextName, "k3k.io/v1beta1"}
 	if !m.lastRefresh.IsZero() {
 		elapsed := time.Since(m.lastRefresh)
-		refreshStatus = fmt.Sprintf("⟳ %ds", int(elapsed.Seconds()))
-	}
-	
-	statusText := fmt.Sprintf("%s | k3k.io/v1beta1 | %s", m.contextName, refreshStatus)
-	if !m.lastRefresh.IsZero() {
-		statusText += fmt.Sprintf("    %s", m.lastRefresh.Format("2006-01-02 15:04"))
+		statusParts = append(statusParts, fmt.Sprintf("⟳ %ds", int(elapsed.Seconds())))
+		statusParts = append(statusParts, m.lastRefresh.Format("15:04"))
 	}
 
-	// Layout
-	helpStyle := lipgloss.NewStyle().
-		Foreground(colorHelp).
-		Align(lipgloss.Left)
-
-	statusStyle := lipgloss.NewStyle().
-		Foreground(colorHelp).
-		Align(lipgloss.Right)
+	statusText := lipgloss.NewStyle().Foreground(catOverlay0).Render(strings.Join(statusParts, " │ "))
 
 	footerStyle := lipgloss.NewStyle().
 		Width(m.width).
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderTop(true).
-		BorderForeground(colorHelp).
+		BorderForeground(catSurface2).
 		Padding(0, 1)
+
+	helpWidth := m.width - lipgloss.Width(statusText) - 4
+	if helpWidth < 20 {
+		helpWidth = 20
+	}
 
 	return footerStyle.Render(
 		lipgloss.JoinHorizontal(
 			lipgloss.Center,
-			helpStyle.Width(m.width-len(statusText)-4).Render(help),
-			statusStyle.Render(statusText),
+			lipgloss.NewStyle().Width(helpWidth).Render(help),
+			statusText,
 		),
 	)
 }

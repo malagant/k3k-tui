@@ -313,190 +313,179 @@ func (f *CreateForm) ToCluster() *types.Cluster {
 	return cluster
 }
 
-// View renders the form in k9s modal style
+// View renders the form as a centered Catppuccin Mocha modal
 func (f *CreateForm) View() string {
 	var content strings.Builder
-	
-	// Title
+
 	titleStyle := lipgloss.NewStyle().
-		Foreground(colorYamlHeader).
+		Foreground(catPeach).
 		Bold(true).
 		Align(lipgloss.Center).
-		Width(74)
-	
-	content.WriteString(titleStyle.Render("CREATE K3K CLUSTER") + "\n\n")
+		Width(68)
 
-	// Progress indicator as a bar
+	content.WriteString(titleStyle.Render("✦ CREATE K3K CLUSTER") + "\n\n")
+
+	// Progress bar
 	totalSteps := 8
 	if f.persistence == "dynamic" && f.step >= StepStorageClass {
 		totalSteps = 9
 	}
-	
 	currentStep := int(f.step) + 1
 	if f.step == StepStorageClass {
 		currentStep = 8
 	} else if f.step == StepConfirm && f.persistence == "dynamic" {
 		currentStep = 9
 	}
-	
-	progressBar := f.renderProgressBar(currentStep, totalSteps)
-	content.WriteString(progressBar + "\n\n")
+	content.WriteString(f.renderProgressBar(currentStep, totalSteps) + "\n\n")
 
-	// Step content
+	descStyle := lipgloss.NewStyle().Foreground(catSubtext0)
+
 	switch f.step {
 	case StepName:
 		content.WriteString(f.renderStepTitle("Cluster Name"))
-		content.WriteString("Enter a unique name for your cluster:\n\n")
+		content.WriteString(descStyle.Render("Enter a unique name for your cluster:") + "\n\n")
 		content.WriteString(f.inputs[0].View() + "\n")
-		
+
 	case StepNamespace:
 		content.WriteString(f.renderStepTitle("Namespace"))
-		content.WriteString("Enter the namespace where the cluster will be created:\n\n")
+		content.WriteString(descStyle.Render("Namespace where the cluster will be created:") + "\n\n")
 		content.WriteString(f.inputs[1].View() + "\n")
-		
+
 	case StepMode:
 		content.WriteString(f.renderStepTitle("Cluster Mode"))
-		content.WriteString("Select cluster mode (use space to toggle):\n\n")
-		
-		sharedIcon := "○"
-		virtualIcon := "○"
-		
+		content.WriteString(descStyle.Render("Select cluster mode (space to toggle):") + "\n\n")
+
+		sharedIcon, virtualIcon := "○", "○"
 		if !f.modeToggle {
-			sharedIcon = "●"
+			sharedIcon = lipgloss.NewStyle().Foreground(catGreen).Render("●")
 		} else {
-			virtualIcon = "●"
+			virtualIcon = lipgloss.NewStyle().Foreground(catGreen).Render("●")
 		}
-		
-		sharedStyle := lipgloss.NewStyle().Foreground(colorModeShared)
-		virtualStyle := lipgloss.NewStyle().Foreground(colorModeVirtual)
-		
-		content.WriteString(fmt.Sprintf("%s %s shared - Lightweight, shared control plane\n", 
-			sharedIcon, sharedStyle.Render("shared")))
-		content.WriteString(fmt.Sprintf("%s %s virtual - Full isolated virtual cluster\n", 
-			virtualIcon, virtualStyle.Render("virtual")))
-		
+
+		content.WriteString(fmt.Sprintf("%s %s  Lightweight, shared control plane\n",
+			sharedIcon, lipgloss.NewStyle().Foreground(catTeal).Bold(true).Render("shared")))
+		content.WriteString(fmt.Sprintf("%s %s  Full isolated virtual cluster\n",
+			virtualIcon, lipgloss.NewStyle().Foreground(catMauve).Bold(true).Render("virtual")))
+
 	case StepVersion:
 		content.WriteString(f.renderStepTitle("K3s Version"))
-		content.WriteString("Enter K3s version (leave empty for default):\n\n")
+		content.WriteString(descStyle.Render("K3s version (leave empty for host default):") + "\n\n")
 		content.WriteString(f.inputs[2].View() + "\n")
-		
+
 	case StepServers:
 		content.WriteString(f.renderStepTitle("Server Nodes"))
-		content.WriteString("Number of server nodes (minimum 1):\n\n")
+		content.WriteString(descStyle.Render("Number of server (control plane) nodes:") + "\n\n")
 		content.WriteString(f.inputs[3].View() + "\n")
-		
+
 	case StepAgents:
 		content.WriteString(f.renderStepTitle("Agent Nodes"))
 		if f.mode == "shared" {
-			content.WriteString("Agent nodes (ignored in shared mode, will be set to 0):\n\n")
+			content.WriteString(descStyle.Render("Ignored in shared mode (set to 0):") + "\n\n")
 		} else {
-			content.WriteString("Number of agent nodes (minimum 0):\n\n")
+			content.WriteString(descStyle.Render("Number of agent (worker) nodes:") + "\n\n")
 		}
 		content.WriteString(f.inputs[4].View() + "\n")
-		
+
 	case StepPersistence:
-		content.WriteString(f.renderStepTitle("Persistence Type"))
-		content.WriteString("Select persistence type (use space to toggle):\n\n")
-		
-		dynamicIcon := "○"
-		ephemeralIcon := "○"
-		
+		content.WriteString(f.renderStepTitle("Persistence"))
+		content.WriteString(descStyle.Render("Select persistence type (space to toggle):") + "\n\n")
+
+		dynIcon, ephIcon := "○", "○"
 		if !f.persistenceToggle {
-			dynamicIcon = "●"
+			dynIcon = lipgloss.NewStyle().Foreground(catGreen).Render("●")
 		} else {
-			ephemeralIcon = "●"
+			ephIcon = lipgloss.NewStyle().Foreground(catGreen).Render("●")
 		}
-		
-		content.WriteString(fmt.Sprintf("%s %s dynamic - Persistent storage\n", 
-			dynamicIcon, lipgloss.NewStyle().Foreground(colorRunning).Render("dynamic")))
-		content.WriteString(fmt.Sprintf("%s %s ephemeral - No persistent storage\n", 
-			ephemeralIcon, lipgloss.NewStyle().Foreground(colorPending).Render("ephemeral")))
-		
+
+		content.WriteString(fmt.Sprintf("%s %s  Persistent PVC storage\n",
+			dynIcon, lipgloss.NewStyle().Foreground(catGreen).Bold(true).Render("dynamic")))
+		content.WriteString(fmt.Sprintf("%s %s  No persistent storage\n",
+			ephIcon, lipgloss.NewStyle().Foreground(catYellow).Bold(true).Render("ephemeral")))
+
 	case StepStorageClass:
 		content.WriteString(f.renderStepTitle("Storage Class"))
-		content.WriteString("Storage class name (leave empty for default):\n\n")
+		content.WriteString(descStyle.Render("Storage class name (leave empty for default):") + "\n\n")
 		content.WriteString(f.inputs[0].View() + "\n")
-		
-	case StepConfirm:
-		content.WriteString(f.renderStepTitle("Confirm Configuration"))
-		content.WriteString("Review your cluster configuration:\n\n")
-		
-		// Configuration summary with styling
-		keyStyle := lipgloss.NewStyle().Foreground(colorYamlKey).Bold(true)
-		valueStyle := lipgloss.NewStyle().Foreground(colorHeaderText)
-		
-		content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Name:"), valueStyle.Render(f.name)))
-		content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Namespace:"), valueStyle.Render(f.namespace)))
-		
-		modeColor := colorModeShared
-		if f.mode == "virtual" {
-			modeColor = colorModeVirtual
-		}
-		content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Mode:"), 
-			lipgloss.NewStyle().Foreground(modeColor).Render(f.mode)))
-		
-		if f.version != "" {
-			content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Version:"), valueStyle.Render(f.version)))
-		}
-		content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Servers:"), valueStyle.Render(fmt.Sprintf("%d", f.servers))))
-		
-		if f.mode != "shared" {
-			content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Agents:"), valueStyle.Render(fmt.Sprintf("%d", f.agents))))
-		}
-		
-		persistenceColor := colorRunning
-		if f.persistence == "ephemeral" {
-			persistenceColor = colorPending
-		}
-		content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Persistence:"), 
-			lipgloss.NewStyle().Foreground(persistenceColor).Render(f.persistence)))
-		
-		if f.persistence == "dynamic" && f.storageClass != "" {
-			content.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("Storage Class:"), valueStyle.Render(f.storageClass)))
-		}
-		
-		content.WriteString("\n" + lipgloss.NewStyle().Foreground(colorCommand).Render("Press Enter to create the cluster") + "\n")
-	}
-	
-	// Instructions
-	content.WriteString("\n")
-	instrStyle := lipgloss.NewStyle().Foreground(colorHelp)
-	content.WriteString(instrStyle.Render("Tab: Next • Shift+Tab: Previous • Enter: Continue • Esc: Cancel"))
 
-	// Modal style with rounded border like k9s
+	case StepConfirm:
+		content.WriteString(f.renderStepTitle("Confirm"))
+
+		kS := lipgloss.NewStyle().Foreground(catBlue).Width(16)
+		vS := lipgloss.NewStyle().Foreground(catText)
+
+		content.WriteString(fmt.Sprintf("%s%s\n", kS.Render("Name:"), vS.Render(f.name)))
+		content.WriteString(fmt.Sprintf("%s%s\n", kS.Render("Namespace:"), vS.Render(f.namespace)))
+
+		mC := catTeal
+		if f.mode == "virtual" {
+			mC = catMauve
+		}
+		content.WriteString(fmt.Sprintf("%s%s\n", kS.Render("Mode:"), lipgloss.NewStyle().Foreground(mC).Render(f.mode)))
+
+		if f.version != "" {
+			content.WriteString(fmt.Sprintf("%s%s\n", kS.Render("Version:"), vS.Render(f.version)))
+		}
+		content.WriteString(fmt.Sprintf("%s%s\n", kS.Render("Servers:"), vS.Render(fmt.Sprintf("%d", f.servers))))
+		if f.mode != "shared" {
+			content.WriteString(fmt.Sprintf("%s%s\n", kS.Render("Agents:"), vS.Render(fmt.Sprintf("%d", f.agents))))
+		}
+
+		pC := catGreen
+		if f.persistence == "ephemeral" {
+			pC = catYellow
+		}
+		content.WriteString(fmt.Sprintf("%s%s\n", kS.Render("Persistence:"), lipgloss.NewStyle().Foreground(pC).Render(f.persistence)))
+
+		if f.persistence == "dynamic" && f.storageClass != "" {
+			content.WriteString(fmt.Sprintf("%s%s\n", kS.Render("Storage Class:"), vS.Render(f.storageClass)))
+		}
+
+		content.WriteString("\n" + lipgloss.NewStyle().Foreground(catGreen).Render("Press Enter to create the cluster") + "\n")
+	}
+
+	// Footer instructions
+	content.WriteString("\n")
+	content.WriteString(lipgloss.NewStyle().Foreground(catOverlay0).Render(
+		"Tab: Next • Shift+Tab: Back • Enter: Continue • Esc: Cancel"))
+
 	modalStyle := lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(colorTableHeader).
-		Background(colorBg).
-		Padding(2, 3).
-		Width(80).
-		Height(25).
-		Align(lipgloss.Left, lipgloss.Top)
+		BorderForeground(catGreen).
+		Background(catMantle).
+		Padding(1, 3).
+		Width(74)
 
-	return modalStyle.Render(content.String())
+	modal := modalStyle.Render(content.String())
+
+	return lipgloss.Place(
+		f.width, f.height,
+		lipgloss.Center, lipgloss.Center,
+		modal,
+	)
 }
 
-// renderStepTitle renders a step title with k9s styling
+// renderStepTitle renders a step title (Catppuccin)
 func (f *CreateForm) renderStepTitle(title string) string {
-	style := lipgloss.NewStyle().
-		Foreground(colorTableHeader).
+	return lipgloss.NewStyle().
+		Foreground(catBlue).
 		Bold(true).
-		Margin(0, 0, 1, 0)
-	return style.Render(title) + "\n"
+		Render(title) + "\n"
 }
 
-// renderProgressBar renders a k9s-style progress bar
+// renderProgressBar renders a Catppuccin-styled progress bar
 func (f *CreateForm) renderProgressBar(current, total int) string {
-	barWidth := 60
+	barWidth := 56
 	filled := int(float64(current) / float64(total) * float64(barWidth))
-	
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
-	
-	progressStyle := lipgloss.NewStyle().
-		Foreground(colorTableHeader)
-	
-	labelStyle := lipgloss.NewStyle().
-		Foreground(colorHelp)
-	
-	return progressStyle.Render(bar) + " " + labelStyle.Render(fmt.Sprintf("%d/%d", current, total))
+	if filled > barWidth {
+		filled = barWidth
+	}
+
+	doneStyle := lipgloss.NewStyle().Foreground(catGreen)
+	todoStyle := lipgloss.NewStyle().Foreground(catSurface1)
+	labelStyle := lipgloss.NewStyle().Foreground(catOverlay1)
+
+	bar := doneStyle.Render(strings.Repeat("━", filled)) +
+		todoStyle.Render(strings.Repeat("━", barWidth-filled))
+
+	return bar + " " + labelStyle.Render(fmt.Sprintf("%d/%d", current, total))
 }

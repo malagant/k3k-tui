@@ -289,28 +289,19 @@ func (m Model) executeCommand() (Model, tea.Cmd) {
 // viewClusterList renders the cluster list view
 func (m Model) viewClusterList() string {
 	if m.loading {
-		loadingStyle := lipgloss.NewStyle().
-			Foreground(colorCommand).
-			Margin(2, 0)
-		return loadingStyle.Render(fmt.Sprintf("%s Loading clusters...", m.spinner.View()))
+		return lipgloss.NewStyle().Foreground(catMauve).Margin(2, 0).
+			Render(fmt.Sprintf("%s Loading clusters...", m.spinner.View()))
 	}
 
 	if len(m.filteredClusters) == 0 {
-		emptyStyle := lipgloss.NewStyle().
-			Foreground(colorHelp).
-			Margin(2, 0).
-			Align(lipgloss.Center)
-			
+		emptyStyle := lipgloss.NewStyle().Foreground(catOverlay1).Margin(2, 0).Align(lipgloss.Center)
 		if len(m.clusters) == 0 {
 			return emptyStyle.Render("No clusters found. Press 'c' to create a new cluster.")
-		} else {
-			return emptyStyle.Render(fmt.Sprintf("No clusters match filter '%s'. Press '/' to change filter.", m.filter))
 		}
+		return emptyStyle.Render(fmt.Sprintf("No clusters match filter '%s'. Press '/' to change filter.", m.filter))
 	}
 
-	// Apply color styling to table cells
-	styledTable := m.renderStyledTable()
-	return styledTable
+	return m.renderStyledTable()
 }
 
 // renderStyledTable applies k9s-style colors to the table
@@ -395,217 +386,215 @@ func (m Model) renderStyledTable() string {
 	return strings.Join(lines, "\n")
 }
 
-// viewClusterDetail renders the cluster detail view in k9s YAML style
+// viewClusterDetail renders the cluster detail view (Catppuccin Mocha)
 func (m Model) viewClusterDetail() string {
 	if m.loading {
-		loadingStyle := lipgloss.NewStyle().
-			Foreground(colorCommand).
-			Margin(2, 0)
-		return loadingStyle.Render(fmt.Sprintf("%s Loading cluster details...", m.spinner.View()))
+		return lipgloss.NewStyle().Foreground(catMauve).Margin(2, 0).
+			Render(fmt.Sprintf("%s Loading cluster details...", m.spinner.View()))
 	}
 
 	return m.viewport.View()
 }
 
-// viewCreateCluster renders the create cluster view
+// viewCreateCluster renders the create cluster view (centered modal)
 func (m Model) viewCreateCluster() string {
 	if m.loading {
-		loadingStyle := lipgloss.NewStyle().
-			Foreground(colorCommand).
-			Margin(2, 0)
-		return loadingStyle.Render(fmt.Sprintf("%s Creating cluster...", m.spinner.View()))
+		return lipgloss.NewStyle().Foreground(catMauve).Margin(2, 0).
+			Render(fmt.Sprintf("%s Creating cluster...", m.spinner.View()))
 	}
 
 	if m.createForm == nil {
-		return lipgloss.NewStyle().
-			Foreground(colorFailed).
-			Margin(2, 0).
+		return lipgloss.NewStyle().Foreground(catRed).Margin(2, 0).
 			Render("Error: Create form not initialized")
 	}
 
+	m.createForm.width = m.width
+	m.createForm.height = m.height - 8
 	return m.createForm.View()
 }
 
-// viewEditCluster renders the edit cluster view
+// viewEditCluster renders the edit cluster view (centered modal)
 func (m Model) viewEditCluster() string {
 	if m.loading {
-		loadingStyle := lipgloss.NewStyle().
-			Foreground(colorCommand).
-			Margin(2, 0)
-		return loadingStyle.Render(fmt.Sprintf("%s Updating cluster...", m.spinner.View()))
+		return lipgloss.NewStyle().Foreground(catMauve).Margin(2, 0).
+			Render(fmt.Sprintf("%s Updating cluster...", m.spinner.View()))
 	}
 
 	if m.editForm == nil {
-		return lipgloss.NewStyle().
-			Foreground(colorFailed).
-			Margin(2, 0).
+		return lipgloss.NewStyle().Foreground(catRed).Margin(2, 0).
 			Render("Error: Edit form not initialized")
 	}
 
+	m.editForm.width = m.width
+	m.editForm.height = m.height - 8
 	return m.editForm.View()
 }
 
-// viewDeleteConfirm renders the delete confirmation modal in k9s style
+// viewDeleteConfirm renders the delete confirmation modal (Catppuccin Mocha, centered)
 func (m Model) viewDeleteConfirm() string {
 	targetName := strings.Split(m.deleteTarget, "/")[1]
-	
-	title := "⚠️  DELETE CLUSTER"
-	
-	content := fmt.Sprintf(`You are about to delete cluster:
-
-%s
-
-This action CANNOT be undone!
-All cluster resources will be permanently deleted.
-
-Type the cluster name to confirm: %s
-
-%s`, 
-		lipgloss.NewStyle().Foreground(colorHeaderText).Bold(true).Render(m.deleteTarget),
-		lipgloss.NewStyle().Foreground(colorCommand).Bold(true).Render(targetName),
-		lipgloss.NewStyle().Foreground(colorHeaderText).Render("► "+m.deleteInput))
-
-	// Modal style with red border like k9s
-	modalStyle := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(colorFailed).
-		Background(colorBg).
-		Padding(1, 3).
-		Width(60).
-		Align(lipgloss.Center)
 
 	titleStyle := lipgloss.NewStyle().
-		Foreground(colorFailed).
+		Foreground(catRed).
 		Bold(true).
 		Align(lipgloss.Center).
 		Width(54)
 
+	clusterStyle := lipgloss.NewStyle().Foreground(catPeach).Bold(true)
+	promptStyle := lipgloss.NewStyle().Foreground(catYellow).Bold(true)
+	inputStyle := lipgloss.NewStyle().Foreground(catText)
+	warningStyle := lipgloss.NewStyle().Foreground(catRed)
+
+	content := fmt.Sprintf(`You are about to delete cluster:
+
+%s
+
+%s
+All cluster resources will be permanently deleted.
+
+Type the cluster name to confirm: %s
+
+%s`,
+		clusterStyle.Render(m.deleteTarget),
+		warningStyle.Render("⚠  This action CANNOT be undone!"),
+		promptStyle.Render(targetName),
+		inputStyle.Render("► "+m.deleteInput+"█"))
+
+	modalStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(catRed).
+		Background(catMantle).
+		Padding(1, 3).
+		Width(60).
+		Align(lipgloss.Center)
+
 	modal := modalStyle.Render(
-		titleStyle.Render(title) + "\n\n" + content,
+		titleStyle.Render("⚠  DELETE CLUSTER") + "\n\n" + content,
 	)
 
-	// Center the modal on screen
 	return lipgloss.Place(
-		m.width, m.height-10,
+		m.width, m.height-8,
 		lipgloss.Center, lipgloss.Center,
 		modal,
 	)
 }
 
-// viewKubeconfig renders the kubeconfig view
+// viewKubeconfig renders the kubeconfig view (Catppuccin Mocha)
 func (m Model) viewKubeconfig() string {
 	if m.loading {
-		loadingStyle := lipgloss.NewStyle().
-			Foreground(colorCommand).
-			Margin(2, 0)
-		return loadingStyle.Render(fmt.Sprintf("%s Loading kubeconfig...", m.spinner.View()))
+		return lipgloss.NewStyle().Foreground(catMauve).Margin(2, 0).
+			Render(fmt.Sprintf("%s Loading kubeconfig...", m.spinner.View()))
 	}
 
 	headerStyle := lipgloss.NewStyle().
-		Foreground(colorYamlHeader).
+		Foreground(catPeach).
 		Bold(true).
-		Margin(0, 0, 1, 0)
+		Margin(0, 0, 1, 1)
 
-	header := headerStyle.Render("Kubeconfig")
-	
-	return header + "\n" + m.viewport.View()
+	return headerStyle.Render("📋 Kubeconfig") + "\n" + m.viewport.View()
 }
 
-// viewFilter renders the filter view (deprecated, using command mode)
+// viewFilter renders the filter view (Catppuccin Mocha, centered)
 func (m Model) viewFilter() string {
-	content := fmt.Sprintf(`Filter Clusters
+	titleStyle := lipgloss.NewStyle().Foreground(catPeach).Bold(true)
+	labelStyle := lipgloss.NewStyle().Foreground(catOverlay1)
+	valueStyle := lipgloss.NewStyle().Foreground(catYellow)
 
-Current filter: %s
-Clusters shown: %d of %d
-
-%s`, 
-		lipgloss.NewStyle().Foreground(colorCommand).Render(m.filter), 
-		len(m.filteredClusters), 
-		len(m.clusters), 
+	content := fmt.Sprintf("%s\n\n%s %s\n%s %d of %d\n\n%s",
+		titleStyle.Render("Filter Clusters"),
+		labelStyle.Render("Current:"),
+		valueStyle.Render(m.filter),
+		labelStyle.Render("Showing:"),
+		len(m.filteredClusters),
+		len(m.clusters),
 		m.textInput.View())
 
-	style := lipgloss.NewStyle().
+	modalStyle := lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(colorTableHeader).
-		Padding(1, 2).
+		BorderForeground(catBlue).
+		Background(catMantle).
+		Padding(1, 3).
 		Width(50)
 
-	modal := style.Render(content)
-	
-	// Center the modal
+	modal := modalStyle.Render(content)
+
 	return lipgloss.Place(
-		m.width, m.height-10,
+		m.width, m.height-8,
 		lipgloss.Center, lipgloss.Center,
 		modal,
 	)
 }
 
-// viewHelp renders the help view in k9s style
+// viewHelp renders the help view (Catppuccin Mocha, centered)
 func (m Model) viewHelp() string {
-	helpContent := `K3K TUI - Keyboard Shortcuts
+	sectionStyle := lipgloss.NewStyle().Foreground(catPeach).Bold(true)
+	keyStyle := lipgloss.NewStyle().Foreground(catMauve).Bold(true)
+	descStyle := lipgloss.NewStyle().Foreground(catSubtext1)
 
-NAVIGATION:
-  ↑/↓              Navigate list
-  enter, d         View details/describe
-  esc              Go back/cancel
-  q, ctrl+c        Quit application
+	line := func(key, desc string) string {
+		return fmt.Sprintf("  %s  %s", keyStyle.Width(16).Render(key), descStyle.Render(desc))
+	}
 
-CLUSTER OPERATIONS:
-  c                Create new cluster
-  e                Edit cluster
-  x, delete        Delete cluster
-  k                View kubeconfig
-  y                View YAML
-
-FILTERING & SEARCH:
-  /                Filter clusters
-  :                Command mode
-  ?                Show this help
-
-COMMANDS:
-  :q, :quit        Quit application
-  :r, :refresh     Refresh data
-  :ns <name>       Switch namespace
-  :clear           Clear filter and errors
-  :help            Show help
-
-CLUSTER LIST:
-  r, F5            Refresh clusters
-  n                Change namespace (TODO)
-
-FORMS:
-  tab              Next field
-  shift+tab        Previous field
-  enter            Submit/next step
-  space            Toggle options`
-
-	style := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(colorTableHeader).
-		Padding(2, 4).
-		Width(m.width-10).
-		Height(m.height-10).
-		Foreground(colorHeaderText)
+	helpContent := strings.Join([]string{
+		sectionStyle.Render("NAVIGATION"),
+		line("↑/↓", "Navigate list"),
+		line("enter, d", "View details/describe"),
+		line("esc", "Go back / cancel"),
+		line("q, ctrl+c", "Quit application"),
+		"",
+		sectionStyle.Render("CLUSTER OPERATIONS"),
+		line("c", "Create new cluster"),
+		line("e", "Edit cluster"),
+		line("x, delete", "Delete cluster"),
+		line("k", "View kubeconfig"),
+		line("y", "View YAML"),
+		"",
+		sectionStyle.Render("FILTERING & SEARCH"),
+		line("/", "Filter clusters"),
+		line(":", "Command mode"),
+		line("?", "Show this help"),
+		"",
+		sectionStyle.Render("COMMANDS"),
+		line(":q, :quit", "Quit application"),
+		line(":r, :refresh", "Refresh data"),
+		line(":ns <name>", "Switch namespace"),
+		line(":clear", "Clear filter and errors"),
+		"",
+		sectionStyle.Render("FORMS"),
+		line("tab", "Next field"),
+		line("shift+tab", "Previous field"),
+		line("enter", "Submit / next step"),
+		line("space", "Toggle options"),
+	}, "\n")
 
 	titleStyle := lipgloss.NewStyle().
-		Foreground(colorYamlHeader).
+		Foreground(catPeach).
 		Bold(true).
-		Align(lipgloss.Center).
-		Width(m.width-18)
+		Align(lipgloss.Center)
 
-	help := titleStyle.Render("HELP") + "\n\n" + helpContent
-	
-	modal := style.Render(help)
-	
-	// Center the modal
+	modalWidth := 56
+	if m.width > 70 {
+		modalWidth = 60
+	}
+
+	modalStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(catLavender).
+		Background(catMantle).
+		Padding(1, 3).
+		Width(modalWidth)
+
+	title := titleStyle.Width(modalWidth - 8).Render("⌨  KEYBOARD SHORTCUTS")
+	modal := modalStyle.Render(title + "\n\n" + helpContent)
+
 	return lipgloss.Place(
-		m.width, m.height,
+		m.width, m.height-4,
 		lipgloss.Center, lipgloss.Center,
 		modal,
 	)
 }
 
-// formatClusterDetails formats cluster details in k9s YAML style with colors
+// formatClusterDetails formats cluster details in k9s YAML style (Catppuccin Mocha)
 func (m Model) formatClusterDetails() string {
 	if m.selectedCluster == nil {
 		return "No cluster selected"
@@ -614,12 +603,11 @@ func (m Model) formatClusterDetails() string {
 	cluster := m.selectedCluster
 	var content strings.Builder
 
-	// Title
-	titleStyle := lipgloss.NewStyle().
-		Foreground(colorYamlHeader).
-		Bold(true)
+	titleStyle := lipgloss.NewStyle().Foreground(catPeach).Bold(true)
+	separatorStyle := lipgloss.NewStyle().Foreground(catSurface2)
+
 	content.WriteString(titleStyle.Render(fmt.Sprintf("Cluster: %s/%s", cluster.Namespace, cluster.Name)) + "\n")
-	content.WriteString(strings.Repeat("=", 50) + "\n\n")
+	content.WriteString(separatorStyle.Render(strings.Repeat("─", 50)) + "\n\n")
 
 	// Key-value styling
 	keyStyle := lipgloss.NewStyle().Foreground(colorYamlKey)
