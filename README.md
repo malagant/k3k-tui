@@ -33,6 +33,39 @@ cd k3k-tui
 go build -o k3k-tui .
 ```
 
+### Nix
+```bash
+nix build github:malagant/k3k-tui
+# or enter dev shell
+nix develop github:malagant/k3k-tui
+```
+
+### Starship Prompt
+
+Show the k3k-tui version in your terminal prompt with [Starship](https://starship.rs).
+
+Add to `~/.config/starship.toml`:
+
+```toml
+[custom.k3k_tui]
+command = "k3k-tui --version 2>/dev/null | head -1 | awk '{print $2}'"
+detect_files = [".goreleaser.yaml"]
+detect_folders = ["internal/tui"]
+when = "command -v k3k-tui"
+symbol = "☸ "
+style = "bold cyan"
+format = "via [$symbol$output]($style) "
+
+[custom.k3k]
+command = "kubectl get crd clusters.k3k.io -o jsonpath='{.spec.versions[0].name}' 2>/dev/null || echo 'n/a'"
+when = "kubectl get crd clusters.k3k.io 2>/dev/null"
+symbol = "k3k "
+style = "bold green"
+format = "[$symbol$output]($style) "
+```
+
+This shows `☸ v0.1.0` when inside the project and `k3k v1beta1` when a k3k cluster is connected.
+
 ## Usage
 
 ### Basic Usage

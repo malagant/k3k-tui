@@ -108,27 +108,17 @@ release:
   footer: |
     **Full Changelog**: https://github.com/malagant/k3k-tui/compare/{{ .PreviousTag }}...{{ .Tag }}
 
-brews:
-  - repository:
-      owner: malagant
-      name: homebrew-tap
-      token: "{{ .Env.GITHUB_TOKEN }}"
-    directory: Formula
-    homepage: https://github.com/malagant/k3k-tui
-    description: Terminal UI for managing k3k virtual clusters
-    license: MIT
-    install: |
-      bin.install "k3k-tui"
-    test: |
-      system "#{bin}/k3k-tui", "--version"
-    skip_upload: auto
-
-nix:
-  - repository:
-      owner: malagant
-      name: nur-packages
-      token: "{{ .Env.GITHUB_TOKEN }}"
-    homepage: https://github.com/malagant/k3k-tui
-    description: Terminal UI for managing k3k virtual clusters
-    license: mit
-    skip_upload: auto
+# Uncomment when homebrew-tap repo exists:
+# brews:
+#   - repository:
+#       owner: malagant
+#       name: homebrew-tap
+#       token: "{{ .Env.GITHUB_TOKEN }}"
+#     directory: Formula
+#     homepage: https://github.com/malagant/k3k-tui
+#     description: Terminal UI for managing k3k virtual clusters
+#     license: MIT
+#     install: |
+#       bin.install "k3k-tui"
+#     test: |
+#       system "#{bin}/k3k-tui", "--version"

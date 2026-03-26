@@ -1,0 +1,33 @@
+# k3k-tui Starship preset
+# 
+# Add this to your ~/.config/starship.toml:
+#
+#   [custom.k3k_tui]
+#   command = "k3k-tui --version 2>/dev/null | head -1 | awk '{print $2}'"
+#   detect_files = [".goreleaser.yaml"]
+#   detect_folders = ["internal/tui"]
+#   when = "command -v k3k-tui"
+#   symbol = "☸ "
+#   style = "bold cyan"
+#   format = "via [$symbol$output]($style) "
+#   description = "k3k-tui version"
+#
+# Or source this file directly in your starship config.
+
+[custom.k3k_tui]
+command = "k3k-tui --version 2>/dev/null | head -1 | awk '{print $2}'"
+detect_files = [".goreleaser.yaml"]
+detect_folders = ["internal/tui"]
+when = "command -v k3k-tui"
+symbol = "☸ "
+style = "bold cyan"
+format = "via [$symbol$output]($style) "
+description = "k3k-tui version"
+
+[custom.k3k]
+command = "kubectl get crd clusters.k3k.io -o jsonpath='{.spec.versions[0].name}' 2>/dev/null || echo 'n/a'"
+when = "kubectl get crd clusters.k3k.io 2>/dev/null"
+symbol = "k3k "
+style = "bold green"
+format = "[$symbol$output]($style) "
+description = "k3k CRD API version"
