@@ -379,7 +379,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case k9sExecMsg:
 		m.loading = false
-		return m, execK9s(msg.kubeconfigPath)
+		return m, execK9s(msg)
 
 	case k9sFinishedMsg:
 		m.loading = false
