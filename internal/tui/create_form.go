@@ -33,7 +33,6 @@ const (
 type CreateForm struct {
 	step         FormStep
 	inputs       []textinput.Model
-	currentInput int
 	
 	// Form values
 	name         string

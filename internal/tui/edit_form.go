@@ -38,9 +38,6 @@ type EditForm struct {
 	serverArgs []string
 	agentArgs  []string
 	
-	// State
-	currentInput int
-	
 	// UI dimensions
 	width  int
 	height int

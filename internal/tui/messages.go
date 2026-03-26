@@ -39,11 +39,6 @@ type kubeconfigLoadedMsg struct {
 	err     error
 }
 
-type namespacesLoadedMsg struct {
-	namespaces []string
-	err        error
-}
-
 type errorMsg struct {
 	error string
 }
@@ -113,19 +108,3 @@ func (m Model) loadKubeconfig(namespace, name string) tea.Cmd {
 	})
 }
 
-func (m Model) loadNamespaces() tea.Cmd {
-	return tea.Cmd(func() tea.Msg {
-		ctx := context.Background()
-		namespaceList, err := m.client.ListNamespaces(ctx)
-		if err != nil {
-			return namespacesLoadedMsg{err: err}
-		}
-		
-		var names []string
-		for _, ns := range namespaceList.Items {
-			names = append(names, ns.Name)
-		}
-		
-		return namespacesLoadedMsg{namespaces: names}
-	})
-}
