@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -116,9 +117,9 @@ func (m Model) loadKubeconfig(namespace, name string) tea.Cmd {
 	})
 }
 
-// launchK9s launches k9s directly for the selected cluster's namespace.
-// Uses tea.ExecProcess to suspend the TUI while k9s runs.
-func launchK9s(namespace string) tea.Cmd {
+// launchK9s generates a kubeconfig for the virtual cluster via k3kcli,
+// then launches k9s with it. Falls back to host namespace if k3kcli is unavailable.
+func launchK9s(namespace, clusterName string) tea.Cmd {
 	k9sPath, err := exec.LookPath("k9s")
 	if err != nil {
 		return func() tea.Msg {
@@ -126,6 +127,33 @@ func launchK9s(namespace string) tea.Cmd {
 		}
 	}
 
+	// Try to generate kubeconfig via k3kcli
+	k3kcliPath, err := exec.LookPath("k3kcli")
+	if err == nil {
+		// Generate kubeconfig to temp file
+		tmpFile, err := os.CreateTemp("", fmt.Sprintf("k3k-tui-%s-%s-*.yaml", namespace, clusterName))
+		if err == nil {
+			tmpFile.Close()
+			genCmd := exec.Command(k3kcliPath, "kubeconfig", "generate",
+				"--name", clusterName,
+				"--namespace", namespace,
+				"--config-name", tmpFile.Name(),
+			)
+			if err := genCmd.Run(); err == nil {
+				// Check that the file has content
+				if info, err := os.Stat(tmpFile.Name()); err == nil && info.Size() > 50 {
+					c := exec.Command(k9sPath, "--kubeconfig", tmpFile.Name())
+					return tea.ExecProcess(c, func(err error) tea.Msg {
+						os.Remove(tmpFile.Name())
+						return k9sFinishedMsg{err: err}
+					})
+				}
+			}
+			os.Remove(tmpFile.Name())
+		}
+	}
+
+	// Fallback: use host kubeconfig scoped to cluster namespace
 	c := exec.Command(k9sPath, "-n", namespace)
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return k9sFinishedMsg{err: err}
