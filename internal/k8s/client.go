@@ -1,11 +1,11 @@
 package k8s
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,7 +19,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/remotecommand"
+
 
 	"github.com/malagant/k3k-tui/internal/types"
 )
@@ -317,34 +317,14 @@ func (c *Client) GetKubeconfig(ctx context.Context, namespace, clusterName strin
 	return []byte(kubeconfig), nil
 }
 
-// execInPod executes a command in a pod and returns stdout
+// execInPod executes a command in a pod via kubectl and returns stdout
 func (c *Client) execInPod(ctx context.Context, namespace, podName, command string) ([]byte, error) {
-	req := c.clientset.CoreV1().RESTClient().Post().
-		Resource("pods").
-		Name(podName).
-		Namespace(namespace).
-		SubResource("exec").
-		Param("container", "").
-		Param("command", "/bin/sh").
-		Param("command", "-c").
-		Param("command", command).
-		Param("stdout", "true").
-		Param("stderr", "false")
-
-	exec, err := remotecommand.NewSPDYExecutor(c.restConfig, "POST", req.URL())
+	cmd := exec.CommandContext(ctx, "kubectl", "exec", "-n", namespace, podName, "--", "sh", "-c", command)
+	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create executor: %w", err)
+		return nil, fmt.Errorf("kubectl exec failed: %w", err)
 	}
-
-	var stdout bytes.Buffer
-	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
-		Stdout: &stdout,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("exec failed: %w", err)
-	}
-
-	return stdout.Bytes(), nil
+	return out, nil
 }
 
 // ListNamespaces retrieves all namespaces
