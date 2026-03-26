@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -228,22 +229,89 @@ func (c *Client) GetClusterPods(ctx context.Context, namespace, clusterName stri
 	return pods, nil
 }
 
-// GetKubeconfig retrieves the kubeconfig secret for a cluster
+// GetKubeconfig retrieves the kubeconfig for a k3k cluster.
+// k3k stores the server CA in a secret named "<cluster>-server-ca" and the
+// API server is exposed via a service. We look for common secret patterns
+// and build connection info from available data.
 func (c *Client) GetKubeconfig(ctx context.Context, namespace, clusterName string) ([]byte, error) {
-	// The kubeconfig is typically stored in a secret named after the cluster
-	secretName := fmt.Sprintf("%s-kubeconfig", clusterName)
-	
-	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
+	// Try common kubeconfig secret name patterns used by k3k
+	secretPatterns := []struct {
+		name string
+		keys []string
+	}{
+		{clusterName + "-kubeconfig", []string{"config", "kubeconfig", "value"}},
+		{clusterName + "-kubeconfig", []string{"kubeconfig.yaml"}},
+		{"k3k-" + clusterName + "-kubeconfig", []string{"config", "kubeconfig", "value"}},
+	}
+
+	for _, p := range secretPatterns {
+		secret, err := c.clientset.CoreV1().Secrets(namespace).Get(ctx, p.name, metav1.GetOptions{})
+		if err != nil {
+			continue
+		}
+		for _, key := range p.keys {
+			if data, ok := secret.Data[key]; ok && len(data) > 0 {
+				return data, nil
+			}
+		}
+	}
+
+	// Fallback: list all secrets in namespace and look for kubeconfig-related data
+	secrets, err := c.clientset.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get kubeconfig secret %s/%s: %w", namespace, secretName, err)
+		return nil, fmt.Errorf("failed to list secrets in %s: %w", namespace, err)
 	}
 
-	kubeconfig, exists := secret.Data["config"]
-	if !exists {
-		return nil, fmt.Errorf("kubeconfig not found in secret %s/%s", namespace, secretName)
+	for _, secret := range secrets.Items {
+		for key, data := range secret.Data {
+			if (key == "config" || key == "kubeconfig" || key == "kubeconfig.yaml" || key == "value") &&
+				len(data) > 100 && containsKubeconfigMarker(data) {
+				return data, nil
+			}
+		}
 	}
 
-	return kubeconfig, nil
+	// Build info from available k3k secrets (server-ca, service)
+	var info strings.Builder
+	info.WriteString(fmt.Sprintf("# Kubeconfig for k3k cluster %s/%s\n", namespace, clusterName))
+	info.WriteString("# No pre-generated kubeconfig secret found.\n")
+	info.WriteString("# Use k3kcli to generate one:\n")
+	info.WriteString(fmt.Sprintf("#   k3kcli kubeconfig generate --name %s --namespace %s\n\n", clusterName, namespace))
+
+	// Show available secrets for debugging
+	info.WriteString("# Available secrets in namespace:\n")
+	for _, secret := range secrets.Items {
+		info.WriteString(fmt.Sprintf("#   %s (type: %s, keys: %s)\n", secret.Name, secret.Type, secretKeys(&secret)))
+	}
+
+	// Show service endpoint if available
+	svcName := clusterName + "-server"
+	svc, err := c.clientset.CoreV1().Services(namespace).Get(ctx, svcName, metav1.GetOptions{})
+	if err == nil {
+		for _, port := range svc.Spec.Ports {
+			if port.Name == "https" || port.Port == 6443 {
+				info.WriteString(fmt.Sprintf("\n# API Server: %s.%s.svc:%d\n", svc.Name, namespace, port.Port))
+			}
+		}
+	}
+
+	return []byte(info.String()), nil
+}
+
+// containsKubeconfigMarker checks if data looks like a kubeconfig
+func containsKubeconfigMarker(data []byte) bool {
+	s := string(data)
+	return strings.Contains(s, "apiVersion") &&
+		(strings.Contains(s, "clusters:") || strings.Contains(s, "kind: Config"))
+}
+
+// secretKeys returns a comma-separated list of keys in a secret
+func secretKeys(secret *corev1.Secret) string {
+	keys := make([]string, 0, len(secret.Data))
+	for k := range secret.Data {
+		keys = append(keys, k)
+	}
+	return strings.Join(keys, ", ")
 }
 
 // ListNamespaces retrieves all namespaces
