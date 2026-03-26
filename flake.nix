@@ -54,6 +54,9 @@
           ];
 
           shellHook = ''
+            # Ensure GOROOT matches the Nix-provided Go (overrides mise/asdf)
+            export GOROOT="${pkgs.go}/share/go"
+
             # Merge k3k-tui starship config with user's existing config
             _user_config="''${STARSHIP_CONFIG:-$HOME/.config/starship.toml}"
             _merged="/tmp/k3k-tui-starship-$$.toml"
