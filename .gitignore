@@ -21,6 +21,10 @@ go.work
 k3k-tui
 k3k-tui-*
 
+# Nix
+result
+.direnv
+
 # Release artifacts
 release/
 
