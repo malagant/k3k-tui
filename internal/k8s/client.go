@@ -127,8 +127,32 @@ func (c *Client) GetCluster(ctx context.Context, namespace, name string) (*types
 	return cluster, nil
 }
 
-// CreateCluster creates a new k3k cluster
+// ensureNamespace creates the namespace if it doesn't exist
+func (c *Client) ensureNamespace(ctx context.Context, namespace string) error {
+	_, err := c.clientset.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+	if err == nil {
+		return nil // already exists
+	}
+
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	}
+	_, err = c.clientset.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create namespace %s: %w", namespace, err)
+	}
+	return nil
+}
+
+// CreateCluster creates a new k3k cluster, creating the namespace if needed
 func (c *Client) CreateCluster(ctx context.Context, cluster *types.Cluster) (*types.Cluster, error) {
+	// Ensure namespace exists
+	if err := c.ensureNamespace(ctx, cluster.Namespace); err != nil {
+		return nil, err
+	}
+
 	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert cluster to unstructured: %w", err)
