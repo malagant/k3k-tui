@@ -244,7 +244,15 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
 		m.loadClusters(),
+		m.autoRefreshTick(),
 	)
+}
+
+// autoRefreshTick returns a command that sends a tickMsg after the refresh interval
+func (m Model) autoRefreshTick() tea.Cmd {
+	return tea.Tick(m.refreshInterval, func(time.Time) tea.Msg {
+		return tickMsg{}
+	})
 }
 
 // Update handles messages and updates the model
@@ -376,6 +384,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.SetContent(m.kubeconfigContent)
 			m.state = KubeconfigView
 		}
+
+	case tickMsg:
+		// Auto-refresh: only reload when on the list view and not loading
+		if m.state == ClusterListView && !m.loading {
+			return m, tea.Batch(m.loadClusters(), m.autoRefreshTick())
+		}
+		// Keep ticking even if not refreshing now
+		return m, m.autoRefreshTick()
 
 	case k9sExecMsg:
 		m.loading = false

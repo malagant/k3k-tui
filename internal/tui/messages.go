@@ -46,6 +46,8 @@ type k9sFinishedMsg struct {
 	err error
 }
 
+type tickMsg struct{}
+
 type errorMsg struct {
 	error string
 }
