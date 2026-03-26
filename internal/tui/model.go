@@ -278,13 +278,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = HelpView
 				return m, nil
 			case "esc":
-				if m.state == HelpView || m.state == CommandView || m.state == FilterView {
+				m.error = ""
+				switch m.state {
+				case HelpView, CommandView, FilterView:
 					m.state = m.lastState
-					m.error = ""
+					return m, nil
+				case ClusterDetailView, KubeconfigView:
+					m.state = ClusterListView
+					return m, nil
+				case ClusterListView:
+					// just clear error, stay in list
 					return m, nil
 				}
-				m.error = ""
-				return m, nil
+				// For other views (Create/Edit/Delete) — fall through to their handlers
 			}
 		}
 
