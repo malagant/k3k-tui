@@ -393,10 +393,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Keep ticking even if not refreshing now
 		return m, m.autoRefreshTick()
 
-	case k9sExecMsg:
-		m.loading = false
-		return m, execK9s(msg)
-
 	case k9sFinishedMsg:
 		m.loading = false
 		if msg.err != nil {

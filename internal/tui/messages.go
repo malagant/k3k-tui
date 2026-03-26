@@ -3,7 +3,6 @@ package tui
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -117,70 +116,18 @@ func (m Model) loadKubeconfig(namespace, name string) tea.Cmd {
 	})
 }
 
-// launchK9s launches k9s for the selected cluster.
-// Strategy:
-// 1. Try to find a real kubeconfig secret → launch k9s with it
-// 2. Fallback: launch k9s with host kubeconfig, scoped to the cluster's namespace
-func (m Model) launchK9s(namespace, clusterName string) tea.Cmd {
-	return func() tea.Msg {
-		// Check k9s is available
-		k9sPath, err := exec.LookPath("k9s")
-		if err != nil {
+// launchK9s launches k9s directly for the selected cluster's namespace.
+// Uses tea.ExecProcess to suspend the TUI while k9s runs.
+func launchK9s(namespace string) tea.Cmd {
+	k9sPath, err := exec.LookPath("k9s")
+	if err != nil {
+		return func() tea.Msg {
 			return k9sFinishedMsg{err: fmt.Errorf("k9s not found in PATH")}
 		}
-
-		// Try to get a virtual cluster kubeconfig
-		ctx := context.Background()
-		kubeconfigData, err := m.client.GetKubeconfig(ctx, namespace, clusterName)
-
-		if err == nil && len(kubeconfigData) > 100 && kubeconfigData[0] != '#' {
-			// Got a real kubeconfig — write to temp file and use it
-			tmpFile, err := os.CreateTemp("", fmt.Sprintf("k3k-tui-%s-%s-*.yaml", namespace, clusterName))
-			if err == nil {
-				tmpFile.Write(kubeconfigData)
-				tmpFile.Close()
-				return k9sExecMsg{
-					k9sPath:        k9sPath,
-					kubeconfigPath: tmpFile.Name(),
-					namespace:      "",
-					cleanup:        true,
-				}
-			}
-		}
-
-		// Fallback: use host kubeconfig, scoped to the cluster namespace
-		return k9sExecMsg{
-			k9sPath:   k9sPath,
-			namespace: namespace,
-			cleanup:   false,
-		}
-	}
-}
-
-// k9sExecMsg is an intermediate message to trigger tea.ExecProcess
-type k9sExecMsg struct {
-	k9sPath        string
-	kubeconfigPath string // empty = use default/host kubeconfig
-	namespace      string // if set, scope k9s to this namespace
-	cleanup        bool   // whether to remove kubeconfigPath on exit
-}
-
-// execK9s creates the tea.ExecProcess command
-func execK9s(msg k9sExecMsg) tea.Cmd {
-	var args []string
-
-	if msg.kubeconfigPath != "" {
-		args = append(args, "--kubeconfig", msg.kubeconfigPath)
-	}
-	if msg.namespace != "" {
-		args = append(args, "-n", msg.namespace)
 	}
 
-	c := exec.Command(msg.k9sPath, args...)
+	c := exec.Command(k9sPath, "-n", namespace)
 	return tea.ExecProcess(c, func(err error) tea.Msg {
-		if msg.cleanup && msg.kubeconfigPath != "" {
-			os.Remove(msg.kubeconfigPath)
-		}
 		return k9sFinishedMsg{err: err}
 	})
 }
