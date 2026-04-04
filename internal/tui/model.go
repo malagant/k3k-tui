@@ -43,30 +43,23 @@ var (
 	catSurface2  = lipgloss.Color("#585b70") // Surface brighter
 	catOverlay0  = lipgloss.Color("#6c7086") // Overlay muted
 	catOverlay1  = lipgloss.Color("#7f849c") // Overlay
-	catOverlay2  = lipgloss.Color("#9399b2") // Overlay bright
 	catSubtext0  = lipgloss.Color("#a6adc8") // Subtext
 	catSubtext1  = lipgloss.Color("#bac2de") // Subtext bright
 	catText      = lipgloss.Color("#cdd6f4") // Main text
 	
 	// Accent colors
-	catRosewater = lipgloss.Color("#f5e0dc")
-	catFlamingo  = lipgloss.Color("#f2cdcd")
-	catPink      = lipgloss.Color("#f5c2e7")
 	catMauve     = lipgloss.Color("#cba6f7")
 	catRed       = lipgloss.Color("#f38ba8")
-	catMaroon    = lipgloss.Color("#eba0ac")
 	catPeach     = lipgloss.Color("#fab387")
 	catYellow    = lipgloss.Color("#f9e2af")
 	catGreen     = lipgloss.Color("#a6e3a1")
 	catTeal      = lipgloss.Color("#94e2d5")
-	catSky       = lipgloss.Color("#89dceb")
 	catSapphire  = lipgloss.Color("#74c7ec")
 	catBlue      = lipgloss.Color("#89b4fa")
 	catLavender  = lipgloss.Color("#b4befe")
 
 	// Semantic aliases (k9s-style mapping onto Catppuccin)
 	colorBg           = catBase
-	colorBreadcrumbBg = catSurface0
 	colorHeaderText   = catText
 	colorTableHeader  = catBlue
 	colorSelectedBg   = catSurface1
@@ -84,19 +77,6 @@ var (
 	colorYamlValue    = catText
 	colorYamlStatus   = catGreen
 	colorYamlHeader   = catPeach
-
-	// Modal colors
-	colorModalBorder    = catLavender
-	colorModalBg        = catMantle
-	colorModalTitle     = catPeach
-	colorDeleteBorder   = catRed
-	colorCreateBorder   = catGreen
-	colorEditBorder     = catYellow
-	colorFormLabel      = catSubtext1
-	colorFormActive     = catBlue
-	colorFormInactive   = catOverlay0
-	colorProgressDone   = catGreen
-	colorProgressTodo   = catSurface1
 )
 
 // Model represents the main TUI model

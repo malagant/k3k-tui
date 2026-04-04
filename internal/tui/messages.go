@@ -133,7 +133,10 @@ func (m Model) launchK9s(namespace, clusterName string) tea.Cmd {
 	if err == nil && len(kubeconfigData) > 50 {
 		tmpFile, tmpErr := os.CreateTemp("", fmt.Sprintf("k3k-tui-%s-%s-*.yaml", namespace, clusterName))
 		if tmpErr == nil {
-			tmpFile.Write(kubeconfigData)
+			if _, err := tmpFile.Write(kubeconfigData); err != nil {
+				os.Remove(tmpFile.Name())
+				return k9sFinishedMsg{err: fmt.Errorf("failed to write kubeconfig: %w", err)}
+			}
 			tmpFile.Close()
 			c := exec.Command(k9sPath, "--kubeconfig", tmpFile.Name())
 			return tea.ExecProcess(c, func(err error) tea.Msg {
