@@ -135,7 +135,9 @@ func (m Model) launchK9s(namespace, clusterName string) tea.Cmd {
 		if tmpErr == nil {
 			if _, err := tmpFile.Write(kubeconfigData); err != nil {
 				os.Remove(tmpFile.Name())
-				return k9sFinishedMsg{err: fmt.Errorf("failed to write kubeconfig: %w", err)}
+				return func() tea.Msg {
+					return k9sFinishedMsg{err: fmt.Errorf("failed to write kubeconfig: %w", err)}
+				}
 			}
 			tmpFile.Close()
 			c := exec.Command(k9sPath, "--kubeconfig", tmpFile.Name())
